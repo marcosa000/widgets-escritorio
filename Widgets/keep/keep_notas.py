@@ -1,7 +1,10 @@
-"""Imprime en JSON las notas activas de Google Keep para el widget de Notas. Lo ejecuta KeepService.
+"""Imprime en JSON las notas activas de Google Keep y todas las etiquetas, para el widget de Notas.
+Lo ejecuta KeepService. Salida: {"notas": [...], "etiquetas": [...]}.
 
-Con el argumento "crear", en cambio, crea una nota con el JSON {"titulo", "texto"} que recibe por la entrada
-estándar e imprime su id.
+Con el argumento "crear" crea una nota con el JSON {"titulo", "texto", "color", "etiquetas"} que recibe por la
+entrada estándar (color: un valor de Keep como "YELLOW"; etiquetas: nombres, se crean si no existen) e imprime
+su id. Con "editar" recibe además "id" y reemplaza título, texto, color y etiquetas de esa nota.
+Las listas con casillas no se editan (su texto no es texto plano): se marcan con "lista": true.
 
 Códigos de salida: 0 bien, 2 Keep sin configurar, 1 otro error (el detalle va por stderr).
 """
@@ -48,9 +51,24 @@ def main():
         keep = gkeepapi.Keep()  # un caché viejo puede romper la sincronización: reintento sin él
         keep.authenticate(config["email"], master, device_id=config["dispositivo"])
 
-    if sys.argv[1:] == ["crear"]:
+    if sys.argv[1:] in (["crear"], ["editar"]):
         datos = json.load(sys.stdin)
-        nota = keep.createNote(datos.get("titulo", ""), datos.get("texto", ""))
+        if sys.argv[1] == "crear":
+            nota = keep.createNote(datos.get("titulo", ""), datos.get("texto", ""))
+        else:
+            nota = keep.get(datos["id"])
+            if nota is None or nota.trashed:
+                sys.exit("La nota ya no existe en Keep")
+            if isinstance(nota, gkeepapi.node.List):
+                sys.exit("Las listas con casillas se editan en Keep")
+            nota.title, nota.text = datos.get("titulo", ""), datos.get("texto", "")
+        nota.color = gkeepapi.node.ColorValue(datos.get("color") or "DEFAULT")
+        elegidas = set(datos.get("etiquetas") or [])
+        for etiqueta in list(nota.labels.all()):
+            if etiqueta.name not in elegidas:
+                nota.labels.remove(etiqueta)
+        for nombre in elegidas:
+            nota.labels.add(keep.findLabel(nombre, create=True))
         keep.sync()  # sube la nota; si falla, sale con error y el widget conserva lo escrito
         guardar_estado(keep)
         print(json.dumps({"id": nota.id}))
@@ -59,11 +77,14 @@ def main():
     guardar_estado(keep)
     notas = [n for n in keep.all() if not n.archived and not n.trashed and (n.title or n.text)]
     notas.sort(key=lambda n: (not n.pinned, -n.timestamps.updated.timestamp()))
-    print(json.dumps([
-        {"id": n.id, "titulo": n.title, "texto": n.text, "color": n.color.value, "fijada": n.pinned,
-         "etiquetas": sorted(l.name for l in n.labels.all())}
-        for n in notas[:MAX_NOTAS]
-    ]))
+    print(json.dumps({
+        "notas": [
+            {"id": n.id, "titulo": n.title, "texto": n.text, "color": n.color.value, "fijada": n.pinned,
+             "etiquetas": sorted(l.name for l in n.labels.all()), "lista": isinstance(n, gkeepapi.node.List)}
+            for n in notas[:MAX_NOTAS]
+        ],
+        "etiquetas": sorted(l.name for l in keep.labels()),
+    }))
 
 
 def guardar_estado(keep):

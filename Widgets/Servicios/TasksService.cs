@@ -51,6 +51,7 @@ public static class TasksService
     // Devuelve false si Google rechazó el cambio, para que la vista vuelva la casilla atrás.
     public static async Task<bool> MarcarAsync(string id, bool hecha)
     {
+        if (Demo.Activo) return true; // en demo la casilla cambia, pero no se escribe en Google
         try
         {
             // Al volver a "needsAction", Google borra solo la fecha de completada.
@@ -68,6 +69,7 @@ public static class TasksService
     // Crea la tarea en la lista principal y refresca. Devuelve el error, o null si salió bien.
     public static async Task<string?> CrearAsync(string titulo)
     {
+        if (Demo.Activo) return "Modo demostración: no se guarda nada";
         try
         {
             await (await Api()).Tasks.Insert(new GTasks.Data.Task { Title = titulo }, Lista).ExecuteAsync();

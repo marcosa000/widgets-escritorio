@@ -67,6 +67,44 @@ public static class DriveService
         }
     }
 
+    // Carpeta de Google Drive para escritorio donde caen las subidas: lo que se copia acá, Drive lo sube solo
+    // (y si no hay internet, cuando vuelva). Si no existe en esta computadora, se sube por la API a "Mi unidad".
+    public const string Bandeja = @"D:\Google Drive\00 INBOX";
+
+    // Devuelve el error, o null si salió bien.
+    public static async Task<string?> GuardarAsync(string nombre, System.IO.Stream contenido, string tipo)
+    {
+        if (Demo.Activo) return "Modo demostración: no se guarda nada";
+        if (!System.IO.Directory.Exists(Bandeja)) return await SubirAsync(nombre, contenido, tipo);
+        try
+        {
+            using (var destino = System.IO.File.Create(RutaLibre(nombre))) await contenido.CopyToAsync(destino);
+            _ = RefrescarLuego(); // Drive para escritorio tarda unos segundos en subirlo
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return "No se pudo guardar en 00 INBOX: " + ex.Message;
+        }
+    }
+
+    // "foto.png" → "foto (2).png" si ya existe, para no pisar nada.
+    private static string RutaLibre(string nombre)
+    {
+        var ruta = System.IO.Path.Combine(Bandeja, nombre);
+        var baseNombre = System.IO.Path.GetFileNameWithoutExtension(nombre);
+        var extension = System.IO.Path.GetExtension(nombre);
+        for (int n = 2; System.IO.File.Exists(ruta); n++)
+            ruta = System.IO.Path.Combine(Bandeja, $"{baseNombre} ({n}){extension}");
+        return ruta;
+    }
+
+    private static async Task RefrescarLuego()
+    {
+        await Task.Delay(TimeSpan.FromSeconds(20));
+        await RefrescarAsync();
+    }
+
     // Sube un archivo a "Mi unidad" y refresca los recientes. Devuelve el error, o null si salió bien.
     public static async Task<string?> SubirAsync(string nombre, System.IO.Stream contenido, string tipo)
     {

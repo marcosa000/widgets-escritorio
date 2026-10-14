@@ -58,12 +58,13 @@ public static class Demo
             Archivo("Fotos del viaje", "application/vnd.google-apps.folder", 120),
         }.Select(DriveService.Mapear).ToList());
 
+        KeepService.Etiquetas = new[] { "Casa", "Facultad", "Lectura", "Proyectos" };
         KeepService.Publicar(new[]
         {
-            new Nota("a", "Lista del súper", "Yerba, pan, frutas, café", KeepService.Color("YELLOW"), true, new[] { "Casa" }),
-            new Nota("b", "Ideas para el proyecto", "Modo oscuro, atajos de teclado y exportar a PDF", KeepService.Color("TEAL"), true, new[] { "Proyectos" }),
-            new Nota("c", "Fórmulas", "Área del círculo: π·r²\nVolumen de la esfera: 4/3·π·r³", KeepService.Color("BLUE"), false, new[] { "Facultad" }),
-            new Nota("d", "Libros pendientes", "Rayuela, Ficciones, El túnel", KeepService.Color("PINK"), false, new[] { "Lectura" }),
+            new Nota("a", "Lista del súper", "Yerba, pan, frutas, café", "YELLOW", true, new[] { "Casa" }),
+            new Nota("b", "Ideas para el proyecto", "Modo oscuro, atajos de teclado y exportar a PDF", "TEAL", true, new[] { "Proyectos" }),
+            new Nota("c", "Fórmulas", "Área del círculo: π·r²\nVolumen de la esfera: 4/3·π·r³", "BLUE", false, new[] { "Facultad" }),
+            new Nota("d", "Libros pendientes", "Rayuela, Ficciones, El túnel", "PINK", false, new[] { "Lectura" }),
         });
     }
 }

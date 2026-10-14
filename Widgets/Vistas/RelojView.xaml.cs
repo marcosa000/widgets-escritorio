@@ -94,8 +94,8 @@ public sealed partial class RelojView : UserControl
             // Varias líneas: la primera es el título y el resto el texto. Una sola: es el texto, sin título.
             var partes = texto.Split('\r', 2);
             error = partes.Length == 2
-                ? await KeepService.CrearAsync(partes[0].Trim(), partes[1].Trim())
-                : await KeepService.CrearAsync("", texto);
+                ? await KeepService.GuardarAsync(null, partes[0].Trim(), partes[1].Trim().Replace('\r', '\n')) // el TextBox usa \r; Keep, \n
+                : await KeepService.GuardarAsync(null, "", texto);
         }
 
         BotonGuardar.IsEnabled = true;

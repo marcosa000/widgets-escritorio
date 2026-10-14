@@ -12,7 +12,7 @@
             <Grid>
                 <TextBlock Text="Notas" Style="{StaticResource TituloWidget}" />
                 <Button HorizontalAlignment="Right" Style="{StaticResource BotonPildora}" Click="NuevaNota"
-                        ToolTipService.ToolTip="Nueva nota en Keep" AutomationProperties.Name="Nueva nota en Keep">
+                        ToolTipService.ToolTip="Nueva nota" AutomationProperties.Name="Nueva nota">
                     <FontIcon Glyph="&#xE710;" FontSize="12" />
                 </Button>
             </Grid>
@@ -29,6 +29,41 @@
                     </Grid.ColumnDefinitions>
                 </Grid>
             </ScrollViewer>
+
+            <!-- Editor de nota nueva: ocupa el lugar de la lista (oculto con Opacity para que el alto no cambie) -->
+            <Grid x:Name="Editor" Grid.Row="1" RowSpacing="8" VerticalAlignment="Top" Opacity="0" IsHitTestVisible="False">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBox x:Name="TextoNota" MaxHeight="96" AcceptsReturn="True" TextWrapping="Wrap" CornerRadius="12" IsTabStop="False"
+                         PlaceholderText="Título en la primera línea, después el texto (Ctrl+Enter guarda)"
+                         AutomationProperties.Name="Texto de la nota" KeyDown="TeclaNota" />
+                <StackPanel x:Name="Colores" Grid.Row="1" Orientation="Horizontal" Spacing="4" />
+                <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                              HorizontalScrollMode="Enabled" VerticalScrollMode="Disabled">
+                    <StackPanel x:Name="EtiquetasEditor" Orientation="Horizontal" Spacing="4" />
+                </ScrollViewer>
+                <Grid Grid.Row="3" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="EstadoNota" Style="{StaticResource Meta}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    <Button x:Name="AbrirEnKeep" Grid.Column="1" Style="{StaticResource BotonIcono}" Click="AbrirEnNavegador" Visibility="Collapsed"
+                            ToolTipService.ToolTip="Abrir en Keep (navegador)" AutomationProperties.Name="Abrir en Keep">
+                        <FontIcon Glyph="&#xE8A7;" FontSize="14" />
+                    </Button>
+                    <Button Grid.Column="2" Content="Cancelar" Click="CerrarEditor" Height="32" CornerRadius="16" Padding="12,0"
+                            Background="Transparent" BorderThickness="0" Foreground="{StaticResource TextoSecundario}" />
+                    <Button x:Name="GuardarNota" Grid.Column="3" Content="Guardar" Click="Guardar" Style="{StaticResource BotonPildora}"
+                            Padding="14,0" FontWeight="SemiBold" />
+                </Grid>
+            </Grid>
         </Grid>
     </Border>
 </UserControl>

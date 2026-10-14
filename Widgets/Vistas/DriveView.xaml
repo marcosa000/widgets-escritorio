@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:servicios="using:Widgets.Servicios">
 
-    <!-- Soltar archivos o imágenes encima los sube a Drive -->
+    <!-- Soltar archivos o imágenes encima los guarda en 00 INBOX (Drive los sube) -->
     <Border Style="{StaticResource TarjetaWidget}" AllowDrop="True" DragOver="ArrastreEncima" Drop="Soltar">
         <Grid>
             <Grid.RowDefinitions>
@@ -19,7 +19,7 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Drive" Style="{StaticResource TituloWidget}" />
-                <Button Grid.Column="1" Style="{StaticResource BotonIcono}" Click="Subir" ToolTipService.ToolTip="Subir lo copiado a Drive (o soltá archivos acá)" AutomationProperties.Name="Subir a Drive">
+                <Button Grid.Column="1" Style="{StaticResource BotonIcono}" Click="Subir" ToolTipService.ToolTip="Guardar lo copiado en 00 INBOX (o soltá archivos acá)" AutomationProperties.Name="Subir a Drive">
                     <FontIcon Glyph="&#xE898;" FontSize="14" />
                 </Button>
                 <Button Grid.Column="2" Style="{StaticResource BotonIcono}" Click="AlternarBusqueda" ToolTipService.ToolTip="Buscar en Drive" AutomationProperties.Name="Buscar en Drive">

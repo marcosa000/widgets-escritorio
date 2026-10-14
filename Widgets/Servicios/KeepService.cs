@@ -9,8 +9,10 @@ using Microsoft.UI.Xaml.Media;
 
 namespace Widgets.Servicios;
 
-public record Nota(string Id, string Titulo, string Texto, SolidColorBrush Color, bool Fijada, IReadOnlyList<string> Etiquetas)
+// ColorKeep: el valor de Keep ("YELLOW"…), para preseleccionarlo al editar. Lista: nota con casillas (solo lectura).
+public record Nota(string Id, string Titulo, string Texto, string ColorKeep, bool Fijada, IReadOnlyList<string> Etiquetas, bool Lista = false)
 {
+    public SolidColorBrush Color => KeepService.Color(ColorKeep);
     public string Link => $"https://keep.google.com/#NOTE/{Id}";
 }
 
@@ -21,6 +23,8 @@ public static class KeepService
     private static readonly string Script = Path.Combine(AppContext.BaseDirectory, "keep", "keep_notas.py");
 
     public static event Action<IReadOnlyList<Nota>>? Actualizado;
+    // Todas las etiquetas de Keep (también las que no tiene ninguna nota activa), para elegir al crear.
+    public static IReadOnlyList<string> Etiquetas { get; internal set; } = Array.Empty<string>();
     public static event Action<string>? Fallo;
 
     // Colores de Keep llevados al acento del widget (punto junto al título).
@@ -31,7 +35,12 @@ public static class KeepService
         ["PINK"] = 0xFDCFE8, ["BROWN"] = 0xE6C9A8, ["GRAY"] = 0xE8EAED,
     };
 
-    private record NotaJson(string id, string titulo, string texto, string color, bool fijada, List<string>? etiquetas);
+    private record NotaJson(string id, string titulo, string texto, string color, bool fijada, List<string>? etiquetas, bool lista);
+    private record SalidaJson(List<NotaJson> notas, List<string> etiquetas);
+
+    // Los colores de Keep en el orden de su paleta, para el selector al crear una nota.
+    public static readonly string[] Paleta =
+        { "DEFAULT", "RED", "ORANGE", "YELLOW", "GREEN", "TEAL", "BLUE", "CERULEAN", "PURPLE", "PINK", "BROWN", "GRAY" };
 
     // También lo usa el modo demostración (Demo.cs).
     internal static void Publicar(IReadOnlyList<Nota> notas) => Actualizado?.Invoke(notas);
@@ -42,9 +51,10 @@ public static class KeepService
     {
         try
         {
-            var notas = JsonSerializer.Deserialize<List<NotaJson>>(await EjecutarAsync()) ?? new();
-            Publicar(notas.Select(n => new Nota(n.id, n.titulo ?? "", n.texto ?? "", Color(n.color ?? ""),
-                n.fijada, n.etiquetas ?? new())).ToList());
+            var salida = JsonSerializer.Deserialize<SalidaJson>(await EjecutarAsync());
+            Etiquetas = salida?.etiquetas ?? new();
+            Publicar((salida?.notas ?? new()).Select(n => new Nota(n.id, n.titulo ?? "", n.texto ?? "", n.color ?? "DEFAULT",
+                n.fijada, n.etiquetas ?? new(), n.lista)).ToList());
         }
         catch (Exception ex)
         {
@@ -52,12 +62,14 @@ public static class KeepService
         }
     }
 
-    // Crea la nota en Keep y refresca. Devuelve el error, o null si salió bien.
-    public static async Task<string?> CrearAsync(string titulo, string texto)
+    // Sin id crea una nota; con id edita esa. Después refresca. Devuelve el error, o null si salió bien.
+    public static async Task<string?> GuardarAsync(string? id, string titulo, string texto, string color = "DEFAULT", IReadOnlyList<string>? etiquetas = null)
     {
+        if (Demo.Activo) return "Modo demostración: no se guarda nada";
         try
         {
-            await EjecutarAsync("crear", JsonSerializer.Serialize(new { titulo, texto }));
+            await EjecutarAsync(id == null ? "crear" : "editar",
+                JsonSerializer.Serialize(new { id, titulo, texto, color, etiquetas = etiquetas ?? Array.Empty<string>() }));
             _ = RefrescarAsync();
             return null;
         }

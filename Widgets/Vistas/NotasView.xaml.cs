@@ -1,4 +1,10 @@
 using System.Collections.Generic;
+using System.Linq;
+using Microsoft.UI.Input;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
+using Windows.System;
+using Windows.UI.Core;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -60,7 +66,7 @@ public sealed partial class NotasView : UserControl
                 },
             };
             AutomationProperties.SetName(nota, n.Titulo != "" ? n.Titulo : n.Texto);
-            nota.Click += (_, _) => App.Abrir(n.Link);
+            nota.Click += (_, _) => AbrirNota(n);
             Grid.SetRow(nota, i / 2);
             Grid.SetColumn(nota, i % 2);
             Mosaico.Children.Add(nota);
@@ -83,5 +89,124 @@ public sealed partial class NotasView : UserControl
         return fila;
     }
 
-    private void NuevaNota(object sender, RoutedEventArgs e) => App.Abrir("https://keep.new");
+    // ── Crear, leer y editar notas sin salir del widget: texto, color y etiquetas ──
+    private Nota? _editando;                 // null: nota nueva
+    private string _color = "DEFAULT";
+    private readonly HashSet<string> _etiquetasElegidas = new();
+    private string _borradorNueva = "";      // lo escrito en una nota nueva no se pierde al abrir otra
+
+    private void NuevaNota(object sender, RoutedEventArgs e)
+    {
+        if (Editor.IsHitTestVisible && _editando == null) { CerrarEditor(sender, e); return; }
+        if (_editando != null) { _editando = null; _color = "DEFAULT"; _etiquetasElegidas.Clear(); }
+        TextoNota.Text = _borradorNueva;
+        AbrirEditor();
+    }
+
+    private void AbrirNota(Nota n)
+    {
+        if (_editando == null) _borradorNueva = TextoNota.Text;
+        _editando = n;
+        TextoNota.Text = n.Titulo != "" ? n.Titulo + "\r" + n.Texto : n.Texto;
+        _color = n.ColorKeep;
+        _etiquetasElegidas.Clear();
+        _etiquetasElegidas.UnionWith(n.Etiquetas);
+        AbrirEditor();
+    }
+
+    private void AbrirEditor()
+    {
+        bool soloLectura = _editando?.Lista == true;
+        TextoNota.IsReadOnly = soloLectura;
+        GuardarNota.IsEnabled = !soloLectura;
+        Colores.IsHitTestVisible = EtiquetasEditor.IsHitTestVisible = !soloLectura;
+        AbrirEnKeep.Visibility = _editando != null ? Visibility.Visible : Visibility.Collapsed;
+        EstadoNota.Text = soloLectura ? "Lista con casillas: se edita en Keep" : "";
+        PintarColores();
+        PintarEtiquetas();
+        MostrarEditor(true);
+        TextoNota.Focus(FocusState.Programmatic);
+        TextoNota.SelectionStart = TextoNota.Text.Length;
+    }
+
+    private void AbrirEnNavegador(object sender, RoutedEventArgs e)
+    {
+        if (_editando != null) App.Abrir(_editando.Link);
+    }
+
+    // Cerrar no borra lo escrito ni lo elegido: si se vuelve a abrir, sigue ahí.
+    private void CerrarEditor(object sender, RoutedEventArgs e) => MostrarEditor(false);
+
+    private void MostrarEditor(bool visible)
+    {
+        Editor.Opacity = visible ? 1 : 0;
+        Editor.IsHitTestVisible = TextoNota.IsTabStop = visible;
+        Flexible.Opacity = Mensaje.Opacity = visible ? 0 : 1;
+        Flexible.IsHitTestVisible = !visible;
+    }
+
+    private void PintarColores()
+    {
+        Colores.Children.Clear();
+        foreach (var c in KeepService.Paleta)
+        {
+            bool elegido = c == _color;
+            var boton = new Button
+            {
+                Width = 22, Height = 22, Padding = new Thickness(0), CornerRadius = new CornerRadius(11), MinWidth = 0,
+                Background = c == "DEFAULT" ? (Brush)Application.Current.Resources["FondoEtiqueta"] : KeepService.Color(c),
+                BorderBrush = (Brush)Application.Current.Resources["TextoPrimario"],
+                BorderThickness = new Thickness(elegido ? 2 : 0),
+            };
+            AutomationProperties.SetName(boton, c == "DEFAULT" ? "Sin color" : $"Color {c.ToLowerInvariant()}");
+            boton.Click += (_, _) => { _color = c; PintarColores(); };
+            Colores.Children.Add(boton);
+        }
+    }
+
+    private void PintarEtiquetas()
+    {
+        EtiquetasEditor.Children.Clear();
+        _etiquetasElegidas.IntersectWith(KeepService.Etiquetas); // por si alguna se borró en Keep
+        foreach (var nombre in KeepService.Etiquetas)
+        {
+            var chip = new ToggleButton
+            {
+                Content = nombre, IsChecked = _etiquetasElegidas.Contains(nombre), FontSize = 11,
+                Height = 26, Padding = new Thickness(8, 0, 8, 0), CornerRadius = new CornerRadius(6), MinWidth = 0,
+            };
+            chip.Click += (_, _) => { if (chip.IsChecked == true) _etiquetasElegidas.Add(nombre); else _etiquetasElegidas.Remove(nombre); };
+            EtiquetasEditor.Children.Add(chip);
+        }
+    }
+
+    private void TeclaNota(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Escape) { CerrarEditor(sender, e); e.Handled = true; return; }
+        bool ctrl = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down);
+        if (e.Key == VirtualKey.Enter && ctrl) { e.Handled = true; Guardar(sender, e); }
+    }
+
+    private async void Guardar(object sender, RoutedEventArgs e)
+    {
+        var texto = TextoNota.Text.Trim();
+        if (texto == "" || !GuardarNota.IsEnabled || _editando?.Lista == true) return;
+        GuardarNota.IsEnabled = false;
+        EstadoNota.Text = "Guardando…";
+
+        // Varias líneas: la primera es el título y el resto el texto. Una sola: es el texto, sin título.
+        var partes = texto.Split('\r', 2);
+        var (titulo, cuerpo) = partes.Length == 2 ? (partes[0].Trim(), partes[1].Trim()) : ("", texto);
+        cuerpo = cuerpo.Replace('\r', '\n'); // el TextBox separa líneas con \r; Keep, con \n
+        var error = await KeepService.GuardarAsync(_editando?.Id, titulo, cuerpo, _color, _etiquetasElegidas.ToList());
+
+        GuardarNota.IsEnabled = true;
+        if (error != null) { EstadoNota.Text = error; return; } // lo escrito queda, para reintentar
+        if (_editando == null) _borradorNueva = "";
+        TextoNota.Text = "";
+        _editando = null;
+        _color = "DEFAULT";
+        _etiquetasElegidas.Clear();
+        MostrarEditor(false);
+    }
 }

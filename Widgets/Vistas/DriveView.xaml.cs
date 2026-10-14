@@ -61,7 +61,7 @@ public sealed partial class DriveView : UserControl
 
     private void AbrirArchivo(object sender, RoutedEventArgs e) => App.Abrir((string)((Button)sender).Tag);
 
-    // Subir pega: si hay archivos o una imagen copiados, los sube; si no, abre "Mi unidad".
+    // Subir pega: si hay archivos o una imagen copiados, los guarda en 00 INBOX; si no, abre "Mi unidad".
     private async void Subir(object sender, RoutedEventArgs e)
     {
         var copiado = Clipboard.GetContent();
@@ -73,7 +73,7 @@ public sealed partial class DriveView : UserControl
     {
         if (!TieneAlgoParaSubir(e.DataView)) return;
         e.AcceptedOperation = DataPackageOperation.Copy;
-        e.DragUIOverride.Caption = "Subir a Drive";
+        e.DragUIOverride.Caption = "Guardar en 00 INBOX";
     }
 
     private async void Soltar(object sender, DragEventArgs e)
@@ -97,16 +97,16 @@ public sealed partial class DriveView : UserControl
             var archivos = (await datos.GetStorageItemsAsync()).OfType<StorageFile>().ToList(); // las carpetas no se suben
             foreach (var a in archivos)
             {
-                Mensaje.Text = $"Subiendo {a.Name}…";
+                Mensaje.Text = $"Guardando {a.Name}…";
                 using var flujo = await a.OpenStreamForReadAsync();
                 var tipo = string.IsNullOrEmpty(a.ContentType) ? "application/octet-stream" : a.ContentType;
-                if (await DriveService.SubirAsync(a.Name, flujo, tipo) is { } error) errores.Add($"{a.Name}: {error}"); else subidos++;
+                if (await DriveService.GuardarAsync(a.Name, flujo, tipo) is { } error) errores.Add($"{a.Name}: {error}"); else subidos++;
             }
         }
         else
         {
             // Imagen copiada (captura de pantalla, imagen copiada del navegador…): se sube como PNG con fecha y hora.
-            Mensaje.Text = "Subiendo imagen…";
+            Mensaje.Text = "Guardando imagen…";
             var nombre = $"Imagen pegada {DateTime.Now:yyyy-MM-dd HH.mm.ss}.png";
             using var origen = await (await datos.GetBitmapAsync()).OpenReadAsync();
             using var png = new MemoryStream();
@@ -116,10 +116,10 @@ public sealed partial class DriveView : UserControl
             codificador.SetSoftwareBitmap(await decodificador.GetSoftwareBitmapAsync());
             await codificador.FlushAsync();
             png.Position = 0;
-            if (await DriveService.SubirAsync(nombre, png, "image/png") is { } error) errores.Add(error); else subidos++;
+            if (await DriveService.GuardarAsync(nombre, png, "image/png") is { } error) errores.Add(error); else subidos++;
         }
 
-        Mensaje.Text = errores.Count == 0 ? (subidos == 1 ? "Subido a Drive" : $"{subidos} archivos subidos a Drive") : string.Join("\n", errores);
+        Mensaje.Text = errores.Count == 0 ? (subidos == 1 ? "Guardado en 00 INBOX" : $"{subidos} archivos guardados en 00 INBOX") : string.Join("\n", errores);
         if (errores.Count == 0) _ = OcultarMensajeLuego();
     }
 
