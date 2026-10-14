@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Widgets</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Google.Apis.Calendar.v3" Version="1.77.0.4285" />
+    <PackageReference Include="Google.Apis.Drive.v3" Version="1.77.0.4276" />
+    <PackageReference Include="Google.Apis.Tasks.v1" Version="1.74.0.3958" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Credencial OAuth "Aplicación de escritorio" bajada de Google Cloud Console; no se versiona. -->
+    <None Include="client_secret.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('client_secret.json')" />
+    <!-- Lector de Google Keep (gkeepapi); KeepService lo ejecuta desde la carpeta del exe. -->
+    <None Include="keep\*.py" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

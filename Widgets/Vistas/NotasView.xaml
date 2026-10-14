@@ -1,0 +1,34 @@
+<UserControl
+    x:Class="Widgets.Vistas.NotasView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Border Style="{StaticResource TarjetaWidget}">
+        <Grid RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid>
+                <TextBlock Text="Notas" Style="{StaticResource TituloWidget}" />
+                <Button HorizontalAlignment="Right" Style="{StaticResource BotonPildora}" Click="NuevaNota"
+                        ToolTipService.ToolTip="Nueva nota en Keep" AutomationProperties.Name="Nueva nota en Keep">
+                    <FontIcon Glyph="&#xE710;" FontSize="12" />
+                </Button>
+            </Grid>
+
+            <TextBlock x:Name="Mensaje" Grid.Row="1" VerticalAlignment="Top" Text="Cargando…" Style="{StaticResource Meta}" TextWrapping="Wrap" />
+
+            <!-- "Flexible": ver AgendaView. Tope de ~2 filas de notas para el alto mínimo. -->
+            <ScrollViewer x:Name="Flexible" Tag="200" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <!-- Mosaico de dos columnas, llenado en código -->
+                <Grid x:Name="Mosaico" ColumnSpacing="8" RowSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                </Grid>
+            </ScrollViewer>
+        </Grid>
+    </Border>
+</UserControl>

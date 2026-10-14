@@ -1,0 +1,81 @@
+"""Imprime en JSON las notas activas de Google Keep para el widget de Notas. Lo ejecuta KeepService.
+
+Con el argumento "crear", en cambio, crea una nota con el JSON {"titulo", "texto"} que recibe por la entrada
+estándar e imprime su id.
+
+Códigos de salida: 0 bien, 2 Keep sin configurar, 1 otro error (el detalle va por stderr).
+"""
+import json
+import os
+import sys
+
+import gkeepapi
+import keyring
+
+SERVICIO = "Widgets.Keep"
+CARPETA = os.path.join(os.environ["LOCALAPPDATA"], "Widgets")
+CONFIG = os.path.join(CARPETA, "keep.json")
+# Caché de la última sincronización: con ella, cada lectura baja solo los cambios y no todas las notas.
+ESTADO = os.path.join(CARPETA, "keep_estado.json")
+MAX_NOTAS = 30
+
+
+def main():
+    try:
+        with open(CONFIG, encoding="utf-8") as f:
+            config = json.load(f)
+        master = keyring.get_password(SERVICIO, config["email"])
+    except (OSError, KeyError, ValueError):
+        master = None
+    if not master:
+        print("Keep no está configurado: corré keep\\configurar_keep.py", file=sys.stderr)
+        sys.exit(2)
+
+    estado = None
+    if os.path.exists(ESTADO):
+        try:
+            with open(ESTADO, encoding="utf-8") as f:
+                estado = json.load(f)
+        except ValueError:
+            estado = None  # caché roto: se baja todo de nuevo
+
+    keep = gkeepapi.Keep()
+    try:
+        keep.authenticate(config["email"], master, state=estado, device_id=config["dispositivo"])
+    except Exception:
+        if estado is None:
+            raise
+        keep = gkeepapi.Keep()  # un caché viejo puede romper la sincronización: reintento sin él
+        keep.authenticate(config["email"], master, device_id=config["dispositivo"])
+
+    if sys.argv[1:] == ["crear"]:
+        datos = json.load(sys.stdin)
+        nota = keep.createNote(datos.get("titulo", ""), datos.get("texto", ""))
+        keep.sync()  # sube la nota; si falla, sale con error y el widget conserva lo escrito
+        guardar_estado(keep)
+        print(json.dumps({"id": nota.id}))
+        return
+
+    guardar_estado(keep)
+    notas = [n for n in keep.all() if not n.archived and not n.trashed and (n.title or n.text)]
+    notas.sort(key=lambda n: (not n.pinned, -n.timestamps.updated.timestamp()))
+    print(json.dumps([
+        {"id": n.id, "titulo": n.title, "texto": n.text, "color": n.color.value, "fijada": n.pinned,
+         "etiquetas": sorted(l.name for l in n.labels.all())}
+        for n in notas[:MAX_NOTAS]
+    ]))
+
+
+def guardar_estado(keep):
+    with open(ESTADO, "w", encoding="utf-8") as f:
+        json.dump(keep.dump(), f)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as e:  # el widget muestra este texto
+        print(f"{type(e).__name__}: {e}", file=sys.stderr)
+        sys.exit(1)

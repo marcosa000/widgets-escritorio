@@ -1,0 +1,37 @@
+<UserControl
+    x:Class="Widgets.Vistas.MesView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Border Style="{StaticResource TarjetaWidget}">
+        <StackPanel Spacing="12">
+            <Grid ColumnSpacing="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="Titulo" Style="{StaticResource TituloWidget}" />
+                <Button Grid.Column="1" Style="{StaticResource BotonIcono}" Click="Anterior" ToolTipService.ToolTip="Mes anterior" AutomationProperties.Name="Mes anterior">
+                    <FontIcon Glyph="&#xE76B;" FontSize="12" />
+                </Button>
+                <Button Grid.Column="2" Style="{StaticResource BotonIcono}" Click="Siguiente" ToolTipService.ToolTip="Mes siguiente" AutomationProperties.Name="Mes siguiente">
+                    <FontIcon Glyph="&#xE76C;" FontSize="12" />
+                </Button>
+                <Button Grid.Column="3" Style="{StaticResource BotonPildora}" Margin="4,0,0,0" Click="NuevoEvento"
+                        ToolTipService.ToolTip="Crear evento en Google Calendar" AutomationProperties.Name="Crear evento en Google Calendar">
+                    <FontIcon Glyph="&#xE710;" FontSize="12" />
+                </Button>
+            </Grid>
+
+            <!-- Filas generadas en código: encabezado L M M J V S D y las semanas -->
+            <Grid x:Name="Dias" RowSpacing="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition />
+                    <ColumnDefinition /><ColumnDefinition /><ColumnDefinition />
+                </Grid.ColumnDefinitions>
+            </Grid>
+        </StackPanel>
+    </Border>
+</UserControl>

@@ -1,0 +1,66 @@
+<Application
+    x:Class="Widgets.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    RequestedTheme="Dark">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+            <!-- Tokens de .superdesign/design-system.md -->
+            <SolidColorBrush x:Key="TextoPrimario" Color="#E6E1E9" />
+            <SolidColorBrush x:Key="TextoSecundario" Color="#CAC4CF" />
+            <SolidColorBrush x:Key="Acento" Color="#D0BCFF" />
+            <SolidColorBrush x:Key="SobreAcento" Color="#381E72" />
+            <SolidColorBrush x:Key="Tarjeta" Color="#202126" Opacity="0.72" />
+            <SolidColorBrush x:Key="BordeTarjeta" Color="#FFFFFF" Opacity="0.06" />
+            <SolidColorBrush x:Key="SuperficieFila" Color="#FFFFFF" Opacity="0.05" />
+            <SolidColorBrush x:Key="FondoEtiqueta" Color="#FFFFFF" Opacity="0.08" />
+
+            <!-- Piezas compartidas por todos los widgets -->
+            <Style x:Key="TarjetaWidget" TargetType="Border">
+                <Setter Property="Background" Value="{StaticResource Tarjeta}" />
+                <Setter Property="BorderBrush" Value="{StaticResource BordeTarjeta}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="28" />
+                <Setter Property="Padding" Value="20" />
+            </Style>
+            <Style x:Key="TituloWidget" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Foreground" Value="{StaticResource TextoPrimario}" />
+            </Style>
+            <Style x:Key="Meta" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Foreground" Value="{StaticResource TextoSecundario}" />
+            </Style>
+            <!-- Etiquetas (contadores, calendario): gris neutro con esquinas suaves; el color va solo en el punto -->
+            <Style x:Key="Etiqueta" TargetType="Border">
+                <Setter Property="CornerRadius" Value="6" />
+                <Setter Property="Padding" Value="8,3" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Background" Value="{StaticResource FondoEtiqueta}" />
+            </Style>
+            <Style x:Key="BotonPildora" TargetType="Button">
+                <Setter Property="Height" Value="32" />
+                <Setter Property="MinWidth" Value="32" />
+                <Setter Property="CornerRadius" Value="16" />
+                <Setter Property="Padding" Value="10,0" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Background" Value="{StaticResource Acento}" />
+                <Setter Property="Foreground" Value="{StaticResource SobreAcento}" />
+            </Style>
+            <Style x:Key="BotonIcono" TargetType="Button">
+                <Setter Property="Width" Value="32" />
+                <Setter Property="Height" Value="32" />
+                <Setter Property="CornerRadius" Value="16" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{StaticResource TextoSecundario}" />
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -1,0 +1,85 @@
+<UserControl
+    x:Class="Widgets.Vistas.AgendaView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:servicios="using:Widgets.Servicios">
+
+    <Border Style="{StaticResource TarjetaWidget}">
+        <Grid RowSpacing="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <!-- Encabezado: título, cantidad de eventos, refrescar y botón + -->
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="Encabezado" Text="Hoy" Style="{StaticResource TituloWidget}" />
+                <Border x:Name="EtiquetaCantidad" Grid.Column="1" HorizontalAlignment="Left" Style="{StaticResource Etiqueta}"
+                        Visibility="Collapsed">
+                    <TextBlock x:Name="Cantidad" FontSize="11" Foreground="{StaticResource TextoSecundario}" />
+                </Border>
+                <Button Grid.Column="2" Style="{StaticResource BotonIcono}" Click="Refrescar" ToolTipService.ToolTip="Actualizar todo" AutomationProperties.Name="Actualizar todo">
+                    <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                </Button>
+                <Button Grid.Column="3" Click="NuevoEvento" Style="{StaticResource BotonPildora}" Padding="14,0"
+                        ToolTipService.ToolTip="Crear evento en Google Calendar" AutomationProperties.Name="Crear evento en Google Calendar">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE710;" FontSize="12" />
+                        <TextBlock Text="Nuevo" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <!-- Estado vacío o error (comparte fila con la lista, que en ese caso está vacía) -->
+            <TextBlock x:Name="Mensaje" Grid.Row="1" VerticalAlignment="Top" Text="Cargando…" Style="{StaticResource Meta}" TextWrapping="Wrap" />
+
+            <!-- "Flexible": WidgetWindow lo cuenta con un tope de Tag px (~5 eventos) para el alto mínimo;
+                 si el widget se agranda, la lista ocupa el espacio extra. El resto, con la rueda del mouse. -->
+            <ScrollViewer x:Name="Flexible" Tag="310" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="ListaEventos">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Spacing="8" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="servicios:Evento">
+                        <Border Background="{StaticResource SuperficieFila}" CornerRadius="16" Padding="12,10" Opacity="{x:Bind Opacidad}">
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="4" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border Background="{x:Bind Color}" CornerRadius="2" />
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock Text="{x:Bind Titulo}" FontSize="14" FontWeight="Medium"
+                                               Foreground="{StaticResource TextoPrimario}" TextTrimming="CharacterEllipsis" />
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="{x:Bind Hora}" FontSize="12" Foreground="{StaticResource TextoSecundario}" />
+                                        <FontIcon Glyph="&#xE707;" FontSize="11" Foreground="{StaticResource TextoSecundario}"
+                                                  Visibility="{x:Bind TieneLugar}" />
+                                        <TextBlock Text="{x:Bind Lugar}" FontSize="12" Foreground="{StaticResource TextoSecundario}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <Border Grid.Column="2" Style="{StaticResource Etiqueta}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Ellipse Width="6" Height="6" Fill="{x:Bind Color}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{x:Bind Calendario}" FontSize="11" Foreground="{StaticResource TextoSecundario}" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </Border>
+</UserControl>

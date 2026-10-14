@@ -1,0 +1,16 @@
+<Window
+    x:Class="Widgets.WidgetWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Widgets">
+
+    <!-- Fondo casi transparente: recibe el arrastre y el clic derecho sin tapar el acrílico -->
+    <Grid x:Name="Raiz" Background="#01000000" Padding="12" PointerPressed="Presionar" PointerMoved="Mover"
+          PointerReleased="Soltar" PointerCaptureLost="Soltar">
+        <Grid.ContextFlyout>
+            <MenuFlyout>
+                <MenuFlyoutItem Text="Cerrar widgets" Click="Cerrar" />
+            </MenuFlyout>
+        </Grid.ContextFlyout>
+    </Grid>
+</Window>

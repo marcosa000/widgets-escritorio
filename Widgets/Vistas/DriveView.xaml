@@ -1,0 +1,70 @@
+<UserControl
+    x:Class="Widgets.Vistas.DriveView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:servicios="using:Widgets.Servicios">
+
+    <!-- Soltar archivos o imágenes encima los sube a Drive -->
+    <Border Style="{StaticResource TarjetaWidget}" AllowDrop="True" DragOver="ArrastreEncima" Drop="Soltar">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid ColumnSpacing="4" Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Drive" Style="{StaticResource TituloWidget}" />
+                <Button Grid.Column="1" Style="{StaticResource BotonIcono}" Click="Subir" ToolTipService.ToolTip="Subir lo copiado a Drive (o soltá archivos acá)" AutomationProperties.Name="Subir a Drive">
+                    <FontIcon Glyph="&#xE898;" FontSize="14" />
+                </Button>
+                <Button Grid.Column="2" Style="{StaticResource BotonIcono}" Click="AlternarBusqueda" ToolTipService.ToolTip="Buscar en Drive" AutomationProperties.Name="Buscar en Drive">
+                    <FontIcon x:Name="IconoBuscar" Glyph="&#xE721;" FontSize="14" />
+                </Button>
+            </Grid>
+
+            <!-- Búsqueda en el widget: Enter busca, Esc vuelve a los recientes -->
+            <TextBox x:Name="Busqueda" Grid.Row="1" Margin="0,0,0,12" AutomationProperties.Name="Buscar en Drive" Visibility="Collapsed"
+                     PlaceholderText="Buscar archivos y carpetas" CornerRadius="12" KeyDown="TeclaBusqueda" />
+
+            <TextBlock x:Name="Mensaje" Grid.Row="2" VerticalAlignment="Top" Text="Cargando…" Style="{StaticResource Meta}" TextWrapping="Wrap" />
+
+            <!-- "Flexible": ver AgendaView. Tope de ~5 archivos para el alto mínimo. -->
+            <ScrollViewer x:Name="Flexible" Tag="230" Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="ListaArchivos">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Spacing="4" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="servicios:Archivo">
+                        <!-- Botón para que el clic abra el archivo y no arranque el arrastre del bloque -->
+                        <Button Click="AbrirArchivo" Tag="{x:Bind Link}" Background="Transparent" BorderThickness="0"
+                                CornerRadius="12" Padding="4,6" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource SuperficieFila}">
+                                <FontIcon Glyph="{x:Bind Icono}" FontSize="16" Foreground="{x:Bind Color}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{x:Bind Nombre}" FontSize="14" Foreground="{StaticResource TextoPrimario}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{x:Bind Cuando}" Style="{StaticResource Meta}" />
+                            </StackPanel>
+                        </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </Border>
+</UserControl>

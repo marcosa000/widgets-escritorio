@@ -1,0 +1,35 @@
+<UserControl
+    x:Class="Widgets.Vistas.TareasView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Border Style="{StaticResource TarjetaWidget}">
+        <Grid RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Tareas" Style="{StaticResource TituloWidget}" />
+                <Border x:Name="EtiquetaContador" Grid.Column="1" HorizontalAlignment="Left" Style="{StaticResource Etiqueta}"
+                        Visibility="Collapsed">
+                    <TextBlock x:Name="Contador" FontSize="11" Foreground="{StaticResource TextoSecundario}" />
+                </Border>
+                <Button Grid.Column="2" Style="{StaticResource BotonPildora}" Click="NuevaTarea"
+                        ToolTipService.ToolTip="Nueva tarea en Google Tasks" AutomationProperties.Name="Nueva tarea en Google Tasks">
+                    <FontIcon Glyph="&#xE710;" FontSize="12" />
+                </Button>
+            </Grid>
+            <TextBlock x:Name="Mensaje" Grid.Row="1" VerticalAlignment="Top" Text="Cargando…" Style="{StaticResource Meta}" TextWrapping="Wrap" />
+            <!-- "Flexible": ver AgendaView. Tope de ~5 tareas para el alto mínimo. -->
+            <ScrollViewer x:Name="Flexible" Tag="170" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <StackPanel x:Name="Lista" Spacing="2" />
+            </ScrollViewer>
+        </Grid>
+    </Border>
+</UserControl>
