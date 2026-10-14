@@ -15,6 +15,7 @@ public partial class App : Application
 {
     private readonly List<WidgetWindow> _ventanas = new();
     private PointInt32 _origen;                     // esquina superior izquierda visible del bloque
+    private int _yElegida;                          // altura donde el usuario dejó el bloque (antes de ajustarlo a la pantalla)
     private bool _ubicado;
     private readonly DispatcherTimer _refresco = new() { Interval = TimeSpan.FromMinutes(5) };
     private (bool Derecha, int Y, int Alto)[] _lugares = Array.Empty<(bool, int, int)>();
@@ -38,7 +39,12 @@ public partial class App : Application
         {
             var w = new WidgetWindow(v);
             w.AltoCambiado += Acomodar;
-            w.Arrastrado += (dx, dy) => { _origen = new PointInt32(_origen.X + dx, _origen.Y + dy); Posicionar(); };
+            w.Arrastrado += (dx, dy) =>
+            {
+                _yElegida += dy;
+                _origen = new PointInt32(_origen.X + dx, _yElegida);
+                Posicionar();
+            };
             w.BordeArrastrado += r => CambiarTamano(w, r);
             _ventanas.Add(w);
             w.Activate();
@@ -104,11 +110,14 @@ public partial class App : Application
         {
             _anchos[0] = _anchos[1] = _ventanas[0].Recuadro.Width;
             int anchoBloque = _anchos[0] + _anchos[1] + espacio;
-            _origen = new PointInt32(area.X + area.Width - anchoBloque - espacio, area.Y + espacio);
+            _yElegida = area.Y + espacio;
+            _origen = new PointInt32(area.X + area.Width - anchoBloque - espacio, _yElegida);
             _ubicado = true;
         }
         // El bloque no pasa el borde de abajo (la barra de tareas); si es más alto que la pantalla, arranca arriba.
-        _origen = new PointInt32(_origen.X, Math.Max(area.Y, Math.Min(_origen.Y, area.Y + area.Height - espacio - alto)));
+        // Se parte siempre de la altura elegida: si el bloque creció un momento (por ejemplo, mientras cargan los
+        // datos), vuelve a su lugar cuando se achica.
+        _origen = new PointInt32(_origen.X, Math.Max(area.Y, Math.Min(_yElegida, area.Y + area.Height - espacio - alto)));
         _lugares = new (bool, int, int)[n];
         foreach (bool derecha in new[] { false, true })
         {
@@ -178,6 +187,7 @@ public partial class App : Application
 
     public static void RefrescarTodo()
     {
+        if (Demo.Activo) { Demo.Cargar(); return; }
         _ = Servicios.CalendarService.RefrescarAsync();
         _ = Servicios.TasksService.RefrescarAsync();
         _ = Servicios.DriveService.RefrescarAsync();

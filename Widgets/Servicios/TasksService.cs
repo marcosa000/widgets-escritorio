@@ -33,12 +33,19 @@ public static class TasksService
                 // Tasks guarda solo la fecha de vencimiento (la hora llega siempre en 00:00 UTC): se toma el día tal cual.
                 .Select(t => new Tarea(t.Id, t.Title, t.Due is { Length: >= 10 } d ? DateTime.Parse(d[..10]) : null))
                 .ToList();
-            Actualizado?.Invoke(Tareas);
+            Publicar(Tareas);
         }
         catch (Exception ex)
         {
             Fallo?.Invoke(Errores.Texto(ex, "Tasks")); // el próximo refresco reintenta
         }
+    }
+
+    // También lo usa el modo demostración (Demo.cs).
+    internal static void Publicar(IReadOnlyList<Tarea> tareas)
+    {
+        Tareas = tareas;
+        Actualizado?.Invoke(tareas);
     }
 
     // Devuelve false si Google rechazó el cambio, para que la vista vuelva la casilla atrás.

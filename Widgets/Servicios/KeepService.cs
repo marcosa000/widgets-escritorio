@@ -33,14 +33,17 @@ public static class KeepService
 
     private record NotaJson(string id, string titulo, string texto, string color, bool fijada, List<string>? etiquetas);
 
+    // También lo usa el modo demostración (Demo.cs).
+    internal static void Publicar(IReadOnlyList<Nota> notas) => Actualizado?.Invoke(notas);
+
+    internal static SolidColorBrush Color(string colorKeep) => App.Pincel(Colores.TryGetValue(colorKeep, out var c) ? c : 0xCAC4CF);
+
     public static async Task RefrescarAsync()
     {
         try
         {
             var notas = JsonSerializer.Deserialize<List<NotaJson>>(await EjecutarAsync()) ?? new();
-            Actualizado?.Invoke(notas.Select(n => new Nota(
-                n.id, n.titulo ?? "", n.texto ?? "",
-                App.Pincel(Colores.TryGetValue(n.color ?? "", out var c) ? c : 0xCAC4CF),
+            Publicar(notas.Select(n => new Nota(n.id, n.titulo ?? "", n.texto ?? "", Color(n.color ?? ""),
                 n.fijada, n.etiquetas ?? new())).ToList());
         }
         catch (Exception ex)

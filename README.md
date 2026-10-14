@@ -1,5 +1,7 @@
 # Widgets de escritorio
 
+![Los widgets en el escritorio (datos de ejemplo)](docs/captura.png)
+
 Widgets para el escritorio de Windows 11 con estética Material You, hechos en WinUI 3 (C#):
 reloj con accesos rápidos, agenda y calendario mensual (Google Calendar), tareas (Google Tasks),
 archivos recientes con búsqueda y subida (Google Drive) y notas (Google Keep, vía [gkeepapi](https://github.com/kiwiz/gkeepapi), no oficial).
@@ -22,6 +24,9 @@ python .\Widgets\keep\configurar_keep.py                         # una vez por c
 ```
 
 Los tokens de Google y de Keep se guardan en el Administrador de credenciales de Windows, no en archivos.
+
+Con la variable de entorno `WIDGETS_DEMO=1` los widgets muestran datos inventados y no se conectan a Google
+(así se sacó la captura de arriba).
 
 `index.md` y `privacidad.md` son la página y la política de privacidad que pide la pantalla de consentimiento de Google
 (publicadas con GitHub Pages).

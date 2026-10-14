@@ -33,13 +33,19 @@ public static class DriveService
             pedido.OrderBy = "viewedByMeTime desc";
             pedido.PageSize = 15;
             pedido.Fields = "files(name,mimeType,viewedByMeTime,webViewLink)";
-            Recientes = ((await pedido.ExecuteAsync()).Files ?? new List<GDrive.Data.File>()).Select(Mapear).ToList();
-            Actualizado?.Invoke(Recientes);
+            Publicar(((await pedido.ExecuteAsync()).Files ?? new List<GDrive.Data.File>()).Select(Mapear).ToList());
         }
         catch (Exception ex)
         {
             Fallo?.Invoke(Errores.Texto(ex, "Drive")); // el próximo refresco reintenta
         }
+    }
+
+    // También lo usa el modo demostración (Demo.cs).
+    internal static void Publicar(IReadOnlyList<Archivo> archivos)
+    {
+        Recientes = archivos;
+        Actualizado?.Invoke(archivos);
     }
 
     // Archivos y carpetas cuyo nombre contiene el texto. Devuelve null si falló (el error va por Fallo).
@@ -89,7 +95,7 @@ public static class DriveService
         ApplicationName = "Widgets",
     });
 
-    private static Archivo Mapear(GDrive.Data.File f)
+    internal static Archivo Mapear(GDrive.Data.File f)
     {
         // Ícono y color por tipo, como en Drive: Docs azul, Sheets verde, Slides amarillo, PDF rojo.
         var (icono, color) = f.MimeType switch

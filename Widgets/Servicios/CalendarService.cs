@@ -49,13 +49,19 @@ public static class CalendarService
     {
         try
         {
-            Eventos = await LeerAsync();
-            Actualizado?.Invoke(Eventos);
+            Publicar(await LeerAsync());
         }
         catch (Exception ex)
         {
             Fallo?.Invoke(Errores.Texto(ex, "Calendar")); // el próximo refresco reintenta
         }
+    }
+
+    // También lo usa el modo demostración (Demo.cs).
+    internal static void Publicar(IReadOnlyList<Evento> eventos)
+    {
+        Eventos = eventos;
+        Actualizado?.Invoke(eventos);
     }
 
     private static async Task<IReadOnlyList<Evento>> LeerAsync()
