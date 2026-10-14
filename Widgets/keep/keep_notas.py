@@ -6,7 +6,8 @@ entrada estándar (color: un valor de Keep como "YELLOW"; etiquetas: nombres, se
 su id. Con "editar" recibe además "id" y reemplaza título, texto, color y etiquetas de esa nota.
 Las listas con casillas no se editan (su texto no es texto plano): se marcan con "lista": true.
 
-Códigos de salida: 0 bien, 2 Keep sin configurar, 1 otro error (el detalle va por stderr).
+Códigos de salida: 0 bien, 2 Keep sin configurar, 3 Google rechazó el token (hay que configurar de nuevo),
+1 otro error (el detalle va por stderr).
 """
 import json
 import os
@@ -97,6 +98,9 @@ if __name__ == "__main__":
         main()
     except SystemExit:
         raise
+    except gkeepapi.exception.LoginException as e:
+        print(f"Google rechazó el token de Keep: {e}", file=sys.stderr)
+        sys.exit(3)
     except Exception as e:  # el widget muestra este texto
         print(f"{type(e).__name__}: {e}", file=sys.stderr)
         sys.exit(1)

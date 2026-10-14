@@ -40,6 +40,14 @@ public static class GoogleAuth
         return _credencial ??= Autorizar();
     }
 
+    // Google invalidó el token (contraseña cambiada, sesiones cerradas, revocación…): se borra el guardado
+    // para que el próximo pedido vuelva a abrir el navegador y pida entrar de nuevo.
+    public static void Olvidar()
+    {
+        _credencial = null;
+        _ = new BovedaDataStore().ClearAsync();
+    }
+
     private static async Task<UserCredential> Autorizar()
     {
         try

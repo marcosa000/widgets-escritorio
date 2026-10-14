@@ -15,7 +15,13 @@ public sealed partial class AgendaView : UserControl
         InitializeComponent();
         CalendarService.Actualizado += _ => Mostrar();
         CalendarService.DiaCambiado += Mostrar;
-        CalendarService.Fallo += texto => { Mensaje.Text = texto; Mensaje.Visibility = Visibility.Visible; };
+        CalendarService.Fallo += texto =>
+        {
+            // Con error, la lista vieja se oculta (sin cambiar el alto) para que el mensaje se lea.
+            Mensaje.Text = texto;
+            Mensaje.Visibility = Visibility.Visible;
+            { Flexible.Opacity = 0; Flexible.IsHitTestVisible = false; }
+        };
     }
 
     // Muestra el día elegido en el calendario mensual (hoy, si no se eligió otro).
@@ -33,6 +39,7 @@ public sealed partial class AgendaView : UserControl
         EtiquetaCantidad.Visibility = eventos.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         Mensaje.Text = dif == 0 ? "Nada más por hoy" : "Sin eventos";
         Mensaje.Visibility = eventos.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        { Flexible.Opacity = 1; Flexible.IsHitTestVisible = true; }
     }
 
     private void Refrescar(object sender, RoutedEventArgs e) => App.RefrescarTodo();

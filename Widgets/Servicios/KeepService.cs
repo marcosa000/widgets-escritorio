@@ -82,6 +82,7 @@ public static class KeepService
     private static string Explicar(Exception ex) => ex switch
     {
         System.ComponentModel.Win32Exception => "No encontré Python. Instalalo o agregalo al PATH.",
+        ErrorKeep { Codigo: 3 } => "Keep cerró la sesión: volvé a correr keep\\configurar_keep.py",
         ErrorKeep { Codigo: 2 } => "Keep no está configurado: corré keep\\configurar_keep.py",
         _ => "No se pudo usar Keep: " + ex.Message,
     };

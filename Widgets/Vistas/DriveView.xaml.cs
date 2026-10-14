@@ -22,7 +22,13 @@ public sealed partial class DriveView : UserControl
         InitializeComponent();
         // El refresco de recientes no pisa una búsqueda en curso.
         DriveService.Actualizado += archivos => { if (!Buscando) Mostrar(archivos, "Sin archivos recientes"); };
-        DriveService.Fallo += texto => { Mensaje.Text = texto; Mensaje.Visibility = Visibility.Visible; };
+        DriveService.Fallo += texto =>
+        {
+            // Con error, la lista vieja se oculta (sin cambiar el alto) para que el mensaje se lea.
+            Mensaje.Text = texto;
+            Mensaje.Visibility = Visibility.Visible;
+            { Flexible.Opacity = 0; Flexible.IsHitTestVisible = false; }
+        };
     }
 
     private void Mostrar(IReadOnlyList<Archivo> archivos, string siVacio)
@@ -30,6 +36,7 @@ public sealed partial class DriveView : UserControl
         ListaArchivos.ItemsSource = archivos;
         Mensaje.Text = siVacio;
         Mensaje.Visibility = archivos.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        { Flexible.Opacity = 1; Flexible.IsHitTestVisible = true; }
     }
 
     private void AlternarBusqueda(object sender, RoutedEventArgs e)

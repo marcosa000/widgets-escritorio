@@ -14,7 +14,13 @@ public sealed partial class TareasView : UserControl
     {
         InitializeComponent();
         TasksService.Actualizado += Mostrar;
-        TasksService.Fallo += texto => { Mensaje.Text = texto; Mensaje.Visibility = Visibility.Visible; };
+        TasksService.Fallo += texto =>
+        {
+            // Con error, la lista vieja se oculta (sin cambiar el alto) para que el mensaje se lea.
+            Mensaje.Text = texto;
+            Mensaje.Visibility = Visibility.Visible;
+            { Flexible.Opacity = 0; Flexible.IsHitTestVisible = false; }
+        };
     }
 
     private void Mostrar(IReadOnlyList<Tarea> tareas)
@@ -37,6 +43,7 @@ public sealed partial class TareasView : UserControl
         }
         Mensaje.Text = "Nada pendiente";
         Mensaje.Visibility = tareas.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        { Flexible.Opacity = 1; Flexible.IsHitTestVisible = true; }
         Pintar();
     }
 

@@ -21,7 +21,13 @@ public sealed partial class NotasView : UserControl
     {
         InitializeComponent();
         KeepService.Actualizado += Mostrar;
-        KeepService.Fallo += texto => { Mensaje.Text = texto; Mensaje.Visibility = Visibility.Visible; };
+        KeepService.Fallo += texto =>
+        {
+            // Con error, la lista vieja se oculta (sin cambiar el alto) para que el mensaje se lea.
+            Mensaje.Text = texto;
+            Mensaje.Visibility = Visibility.Visible;
+            if (!Editor.IsHitTestVisible) { Flexible.Opacity = 0; Flexible.IsHitTestVisible = false; }
+        };
     }
 
     private void Mostrar(IReadOnlyList<Nota> notas)
@@ -73,6 +79,7 @@ public sealed partial class NotasView : UserControl
         }
         Mensaje.Text = "Sin notas";
         Mensaje.Visibility = notas.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (!Editor.IsHitTestVisible) { Flexible.Opacity = 1; Flexible.IsHitTestVisible = true; }
     }
 
     // Etiquetas de Keep con el mismo estilo gris de la Agenda; si no entran en el ancho, se recortan.
