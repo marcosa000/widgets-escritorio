@@ -45,11 +45,14 @@ public static class TasksService
             var pedido = (await Api()).Tasks.List(Lista);
             pedido.ShowCompleted = true;
             pedido.ShowHidden = true; // las completadas pasan a "ocultas" cuando se limpian en Tasks
-            pedido.CompletedMin = DateTime.UtcNow.AddDays(-DiasCompletadas).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"); // RFC 3339
             pedido.MaxResults = 100;
             var tareas = (await pedido.ExecuteAsync()).Items ?? new List<GTasks.Data.Task>();
+            // Las completadas viejas se descartan acá y no con completedMin: ese filtro de la API deja la lista vacía
+            // (también saca las pendientes, que no tienen fecha de completada).
+            var desde = DateTime.UtcNow.AddDays(-DiasCompletadas);
             Publicar(tareas
                 .Where(t => !string.IsNullOrWhiteSpace(t.Title) && t.Deleted != true)
+                .Where(t => t.Status != "completed" || (DateTime.TryParse(t.Completed, null, System.Globalization.DateTimeStyles.AdjustToUniversal, out var hecha) && hecha >= desde))
                 .OrderBy(t => t.Position)
                 .Select(Mapear)
                 .ToList());
