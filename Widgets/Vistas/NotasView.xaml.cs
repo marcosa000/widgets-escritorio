@@ -268,12 +268,23 @@ public sealed partial class NotasView : UserControl
         if (texto == "") return;
 
         // Varias líneas: la primera es el título y el resto el texto. Una sola: es el texto, sin título.
+        // Una nota existente sin título sigue sin título (si no, su primera línea pasaría a serlo).
         var partes = texto.Split('\r', 2);
-        var (titulo, cuerpo) = partes.Length == 2 ? (partes[0].Trim(), partes[1].Trim()) : ("", texto);
+        var (titulo, cuerpo) = _editando is { Titulo: "" } ? ("", texto)
+            : partes.Length == 2 ? (partes[0].Trim(), partes[1].Trim()) : ("", texto);
         cuerpo = cuerpo.Replace('\r', '\n'); // el TextBox separa líneas con \r; Keep, con \n
 
         var original = _editando;
         var (color, etiquetas) = (_color, _etiquetasElegidas.ToArray());
+
+        // Sin cambios no se guarda: Keep no se toca (cada guardado es un inicio de sesión) y se vuelve a la lectura.
+        if (original != null && titulo == original.Titulo.Trim() && cuerpo == original.Texto.Trim()
+            && color == original.ColorKeep && _etiquetasElegidas.SetEquals(original.Etiquetas))
+        {
+            _editando = null;
+            IrA(Modo.Lectura);
+            return;
+        }
         var anteriores = _notas;
         var nueva = new Nota(original?.Id ?? "nueva", titulo, cuerpo, color, original?.Fijada ?? false, etiquetas);
         Mostrar(original == null ? anteriores.Prepend(nueva).ToList() : anteriores.Select(n => n.Id == original.Id ? nueva : n).ToList());
