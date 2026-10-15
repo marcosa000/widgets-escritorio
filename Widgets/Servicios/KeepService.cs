@@ -51,17 +51,23 @@ public static class KeepService
     {
         try
         {
-            var salida = JsonSerializer.Deserialize<SalidaJson>(await EjecutarAsync());
-            Etiquetas = salida?.etiquetas ?? new();
-            FaltaConfigurar = false;
-            Publicar((salida?.notas ?? new()).Select(n => new Nota(n.id, n.titulo ?? "", n.texto ?? "", n.color ?? "DEFAULT",
-                n.fijada, n.etiquetas ?? new(), n.lista)).ToList());
+            Procesar(await EjecutarAsync());
         }
         catch (Exception ex)
         {
             FaltaConfigurar = ex is ErrorKeep { Codigo: 2 or 3 };
             Fallo?.Invoke(Explicar(ex));
         }
+    }
+
+    // Salida de keep_notas.py (al leer y también al guardar): notas y etiquetas.
+    private static void Procesar(string json)
+    {
+        var salida = JsonSerializer.Deserialize<SalidaJson>(json);
+        Etiquetas = salida?.etiquetas ?? new();
+        FaltaConfigurar = false;
+        Publicar((salida?.notas ?? new()).Select(n => new Nota(n.id, n.titulo ?? "", n.texto ?? "", n.color ?? "DEFAULT",
+            n.fijada, n.etiquetas ?? new(), n.lista)).ToList());
     }
 
     // Keep sin configurar o con el token rechazado: la vista muestra el botón "Configurar Keep".
@@ -89,9 +95,9 @@ public static class KeepService
         if (Demo.Activo) return "Modo demostración: no se guarda nada";
         try
         {
-            await EjecutarAsync(id == null ? "crear" : "editar",
-                JsonSerializer.Serialize(new { id, titulo, texto, color, etiquetas = etiquetas ?? Array.Empty<string>() }));
-            _ = RefrescarAsync();
+            // El script guarda y devuelve el listado actualizado: un solo inicio de sesión, sin releer aparte.
+            Procesar(await EjecutarAsync(id == null ? "crear" : "editar",
+                JsonSerializer.Serialize(new { id, titulo, texto, color, etiquetas = etiquetas ?? Array.Empty<string>() })));
             return null;
         }
         catch (Exception ex)

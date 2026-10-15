@@ -3,7 +3,7 @@ Lo ejecuta KeepService. Salida: {"notas": [...], "etiquetas": [...]}.
 
 Con el argumento "crear" crea una nota con el JSON {"titulo", "texto", "color", "etiquetas"} que recibe por la
 entrada estándar (color: un valor de Keep como "YELLOW"; etiquetas: nombres, se crean si no existen) e imprime
-su id. Con "editar" recibe además "id" y reemplaza título, texto, color y etiquetas de esa nota.
+el listado actualizado (igual que sin argumentos). Con "editar" recibe además "id" y reemplaza título, texto, color y etiquetas de esa nota.
 Las listas con casillas no se editan (su texto no es texto plano): se marcan con "lista": true.
 
 Códigos de salida: 0 bien, 2 Keep sin configurar, 3 Google rechazó el token (hay que configurar de nuevo),
@@ -71,9 +71,7 @@ def main():
         for nombre in elegidas:
             nota.labels.add(keep.findLabel(nombre, create=True))
         keep.sync()  # sube la nota; si falla, sale con error y el widget conserva lo escrito
-        guardar_estado(keep)
-        print(json.dumps({"id": nota.id}))
-        return
+        # Sigue de largo e imprime el listado actualizado: así el widget no corre el script (ni inicia sesión) otra vez.
 
     guardar_estado(keep)
     notas = [n for n in keep.all() if not n.archived and not n.trashed and (n.title or n.text)]

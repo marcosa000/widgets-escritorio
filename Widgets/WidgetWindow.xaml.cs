@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Composition.SystemBackdrops;
@@ -151,8 +152,10 @@ internal sealed class Medidor : Microsoft.UI.Xaml.Controls.Panel
     private readonly FrameworkElement _contenido;
     private readonly Action<double, double> _alMedir;
     private const double PisoFlexible = 80;
-    private FrameworkElement? _flexible;
-    private double _tope;
+    // Zonas que se desplazan solas (la lista de cada vista). Se cuentan solo las visibles: las ocultas con
+    // Visibility no ocupan lugar en la medida.
+    private static readonly string[] NombresFlexibles = { "Flexible" };
+    private (FrameworkElement Elemento, double Tope)[] _flexibles = Array.Empty<(FrameworkElement, double)>();
 
     public Medidor(FrameworkElement contenido, Action<double, double> alMedir)
     {
@@ -160,8 +163,11 @@ internal sealed class Medidor : Microsoft.UI.Xaml.Controls.Panel
         Children.Add(contenido);
         contenido.Loaded += (_, _) =>
         {
-            _flexible = contenido.FindName("Flexible") as FrameworkElement;
-            _tope = double.TryParse(_flexible?.Tag as string, out var t) ? t : 0;
+            _flexibles = NombresFlexibles
+                .Select(n => contenido.FindName(n) as FrameworkElement)
+                .Where(f => f != null)
+                .Select(f => (f!, double.TryParse(f!.Tag as string, out var t) ? t : 0))
+                .ToArray();
             InvalidateMeasure();
         };
     }
@@ -170,11 +176,12 @@ internal sealed class Medidor : Microsoft.UI.Xaml.Controls.Panel
     {
         _contenido.Measure(new Windows.Foundation.Size(disponible.Width, double.PositiveInfinity));
         double total = _contenido.DesiredSize.Height, piso = total;
-        if (_flexible != null)
+        foreach (var (flexible, tope) in _flexibles)
         {
-            double lista = _flexible.DesiredSize.Height;
-            total += Math.Min(lista, _tope) - lista;
-            piso += Math.Min(lista, PisoFlexible) - lista;
+            if (flexible.Visibility != Visibility.Visible) continue;
+            double alto = flexible.DesiredSize.Height;
+            total += Math.Min(alto, tope) - alto;
+            piso += Math.Min(alto, Math.Min(tope, PisoFlexible)) - alto;
         }
         _alMedir(total, piso);
 

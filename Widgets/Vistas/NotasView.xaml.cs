@@ -1,38 +1,76 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.UI.Input;
-using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Input;
-using Windows.System;
-using Windows.UI.Core;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
 using Widgets.Servicios;
+using Windows.System;
+using Windows.UI.Core;
 
 namespace Widgets.Vistas;
 
+// Tres modos en el mismo lugar: la lista de notas, la lectura de una nota y el editor (nueva o existente).
 public sealed partial class NotasView : UserControl
 {
+    private enum Modo { Lista, Lectura, Edicion }
+
+    private Modo _modo = Modo.Lista;
+    private IReadOnlyList<Nota> _notas = Array.Empty<Nota>();
+    private Nota? _abierta;                  // la nota en lectura (o la que se está editando)
+    private Nota? _editando;                 // null en el editor: nota nueva
+    private string _color = "DEFAULT";
+    private readonly HashSet<string> _etiquetasElegidas = new();
+    // Lo escrito en una nota nueva no se pierde al abrir otra nota o cancelar.
+    private (string Texto, string Color, string[] Etiquetas) _borrador = ("", "DEFAULT", Array.Empty<string>());
+
+
     public NotasView()
     {
         InitializeComponent();
         KeepService.Actualizado += Mostrar;
         KeepService.Fallo += texto =>
         {
-            // Con error, la lista vieja se oculta (sin cambiar el alto) para que el mensaje se lea.
             Mensaje.Text = texto;
             Mensaje.Visibility = Visibility.Visible;
             ConfigurarKeep.Visibility = KeepService.FaltaConfigurar ? Visibility.Visible : Visibility.Collapsed;
-            if (!Editor.IsHitTestVisible) { Flexible.Opacity = 0; Flexible.IsHitTestVisible = false; }
+            Flexible.Opacity = 0; // con error, la lista vieja se oculta (sin cambiar el alto) para que el mensaje se lea
+            Flexible.IsHitTestVisible = false;
         };
     }
 
+    // Lo mínimo que ocupan la lectura y el editor (colores, etiquetas y botones, más unas líneas de texto).
+    private const double ZonaMinima = 200;
+
+    private void IrA(Modo modo)
+    {
+        // La lectura y el editor ocupan exactamente el lugar que tenía la lista: el widget no cambia de alto
+        // ni se reacomoda el bloque al pasar de un modo a otro.
+        if (_modo == Modo.Lista && modo != Modo.Lista)
+            Vista.Height = Editor.Height = Math.Max(Flexible.ActualHeight, ZonaMinima);
+        _modo = modo;
+        Aviso.Visibility = Flexible.Visibility = modo == Modo.Lista ? Visibility.Visible : Visibility.Collapsed;
+        Vista.Visibility = modo == Modo.Lectura ? Visibility.Visible : Visibility.Collapsed;
+        Editor.Visibility = modo == Modo.Edicion ? Visibility.Visible : Visibility.Collapsed;
+        if (modo == Modo.Edicion)
+        {
+            TextoNota.Focus(FocusState.Programmatic);
+            TextoNota.SelectionStart = TextoNota.Text.Length;
+        }
+    }
+
+    // ── Lista ──
+
     private void Mostrar(IReadOnlyList<Nota> notas)
     {
+        _notas = notas;
         var texto = (Brush)Application.Current.Resources["TextoPrimario"];
         var meta = (Brush)Application.Current.Resources["TextoSecundario"];
         Mosaico.Children.Clear();
@@ -81,28 +119,28 @@ public sealed partial class NotasView : UserControl
         ConfigurarKeep.Visibility = Visibility.Collapsed;
         Mensaje.Text = "Sin notas";
         Mensaje.Visibility = notas.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        if (!Editor.IsHitTestVisible) { Flexible.Opacity = 1; Flexible.IsHitTestVisible = true; }
+        Flexible.Opacity = 1;
+        Flexible.IsHitTestVisible = true;
+
+        // Si se está leyendo una nota, se muestra su versión nueva.
+        if (_modo == Modo.Lectura && _abierta != null && notas.FirstOrDefault(n => n.Id == _abierta.Id) is { } actual)
+            AbrirNota(actual);
     }
 
     // Etiquetas de Keep con el mismo estilo gris de la Agenda; si no entran en el ancho, se recortan.
-    private static UIElement Etiquetas(IReadOnlyList<string> etiquetas, Brush meta)
+    private static StackPanel Etiquetas(IReadOnlyList<string> etiquetas, Brush meta)
     {
         var fila = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Margin = new Thickness(0, 4, 0, 0) };
-        foreach (var e in etiquetas)
-            fila.Children.Add(new Border
-            {
-                Style = (Style)Application.Current.Resources["Etiqueta"],
-                Child = new TextBlock { Text = e, FontSize = 11, Foreground = meta, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 120 },
-            });
+        foreach (var e in etiquetas) fila.Children.Add(Chip(e, meta));
         fila.Visibility = etiquetas.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         return fila;
     }
 
-    // ── Crear, leer y editar notas sin salir del widget: texto, color y etiquetas ──
-    private Nota? _editando;                 // null: nota nueva
-    private string _color = "DEFAULT";
-    private readonly HashSet<string> _etiquetasElegidas = new();
-    private string _borradorNueva = "";      // lo escrito en una nota nueva no se pierde al abrir otra
+    private static Border Chip(string etiqueta, Brush meta) => new()
+    {
+        Style = (Style)Application.Current.Resources["Etiqueta"],
+        Child = new TextBlock { Text = etiqueta, FontSize = 11, Foreground = meta, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 120 },
+    };
 
     // Abre una ventana de PowerShell con configurar_keep.py; al cerrarla, el widget vuelve a leer Keep.
     private async void Configurar(object sender, RoutedEventArgs e)
@@ -113,55 +151,72 @@ public sealed partial class NotasView : UserControl
         ConfigurarKeep.IsEnabled = true;
     }
 
-    private void NuevaNota(object sender, RoutedEventArgs e)
-    {
-        if (Editor.IsHitTestVisible && _editando == null) { CerrarEditor(sender, e); return; }
-        if (_editando != null) { _editando = null; _color = "DEFAULT"; _etiquetasElegidas.Clear(); }
-        TextoNota.Text = _borradorNueva;
-        AbrirEditor();
-    }
+    // ── Lectura ──
 
     private void AbrirNota(Nota n)
     {
-        if (_editando == null) _borradorNueva = TextoNota.Text;
-        _editando = n;
-        TextoNota.Text = n.Titulo != "" ? n.Titulo + "\r" + n.Texto : n.Texto;
-        _color = n.ColorKeep;
-        _etiquetasElegidas.Clear();
-        _etiquetasElegidas.UnionWith(n.Etiquetas);
-        AbrirEditor();
+        _abierta = n;
+        VistaColor.Fill = n.Color;
+        VistaTitulo.Text = n.Titulo != "" ? n.Titulo : "Sin título";
+        VistaTexto.Text = n.Texto;
+        VistaEtiquetas.Children.Clear();
+        foreach (var e in n.Etiquetas) VistaEtiquetas.Children.Add(Chip(e, (Brush)Application.Current.Resources["TextoSecundario"]));
+        // Las listas con casillas no son texto plano: editarlas como texto las rompería. Se editan en Keep.
+        BotonEditar.Visibility = n.Lista ? Visibility.Collapsed : Visibility.Visible;
+        ToolTipService.SetToolTip(VistaTexto, n.Lista ? "Lista con casillas: se edita en Keep" : "Doble clic para editar");
+        IrA(Modo.Lectura);
     }
 
-    private void AbrirEditor()
+    private void VolverALista(object sender, RoutedEventArgs e)
     {
-        bool soloLectura = _editando?.Lista == true;
-        TextoNota.IsReadOnly = soloLectura;
-        GuardarNota.IsEnabled = !soloLectura;
-        Colores.IsHitTestVisible = EtiquetasEditor.IsHitTestVisible = !soloLectura;
-        AbrirEnKeep.Visibility = _editando != null ? Visibility.Visible : Visibility.Collapsed;
-        EstadoNota.Text = soloLectura ? "Lista con casillas: se edita en Keep" : "";
-        PintarColores();
-        PintarEtiquetas();
-        MostrarEditor(true);
-        TextoNota.Focus(FocusState.Programmatic);
-        TextoNota.SelectionStart = TextoNota.Text.Length;
+        _abierta = null;
+        IrA(Modo.Lista);
     }
 
     private void AbrirEnNavegador(object sender, RoutedEventArgs e)
     {
-        if (_editando != null) App.Abrir(_editando.Link);
+        if (_abierta != null) App.Abrir(_abierta.Link);
     }
 
-    // Cerrar no borra lo escrito ni lo elegido: si se vuelve a abrir, sigue ahí.
-    private void CerrarEditor(object sender, RoutedEventArgs e) => MostrarEditor(false);
+    private void EditarConDobleClic(object sender, DoubleTappedRoutedEventArgs e) => Editar(sender, e);
 
-    private void MostrarEditor(bool visible)
+    // ── Edición ──
+
+    private void Editar(object sender, RoutedEventArgs e)
     {
-        Editor.Opacity = visible ? 1 : 0;
-        Editor.IsHitTestVisible = TextoNota.IsTabStop = visible;
-        Flexible.Opacity = Aviso.Opacity = visible ? 0 : 1;
-        Aviso.IsHitTestVisible = !visible;
-        Flexible.IsHitTestVisible = !visible;
+        if (_abierta == null || _abierta.Lista) return;
+        if (_editando == null) GuardarBorrador();
+        _editando = _abierta;
+        CargarEditor(_abierta.Titulo != "" ? _abierta.Titulo + "\r" + _abierta.Texto : _abierta.Texto, _abierta.ColorKeep, _abierta.Etiquetas);
+        IrA(Modo.Edicion);
+    }
+
+    private void NuevaNota(object sender, RoutedEventArgs e)
+    {
+        if (_modo == Modo.Edicion && _editando == null) { Cancelar(sender, e); return; } // el "+" también cierra
+        _editando = null;
+        CargarEditor(_borrador.Texto, _borrador.Color, _borrador.Etiquetas);
+        IrA(Modo.Edicion);
+    }
+
+    private void CargarEditor(string texto, string color, IEnumerable<string> etiquetas)
+    {
+        TextoNota.Text = texto;
+        _color = color;
+        _etiquetasElegidas.Clear();
+        _etiquetasElegidas.UnionWith(etiquetas);
+        EstadoNota.Text = "";
+        PintarColores();
+        PintarEtiquetas();
+    }
+
+    private void GuardarBorrador() => _borrador = (TextoNota.Text, _color, _etiquetasElegidas.ToArray());
+
+    // Cancelar: de una nota existente vuelve a su lectura; de una nueva, a la lista (el borrador queda guardado).
+    private void Cancelar(object sender, RoutedEventArgs e)
+    {
+        if (_editando == null) { GuardarBorrador(); IrA(Modo.Lista); }
+        else { _editando = null; IrA(Modo.Lectura); }
     }
 
     private void PintarColores()
@@ -169,13 +224,12 @@ public sealed partial class NotasView : UserControl
         Colores.Children.Clear();
         foreach (var c in KeepService.Paleta)
         {
-            bool elegido = c == _color;
             var boton = new Button
             {
                 Width = 22, Height = 22, Padding = new Thickness(0), CornerRadius = new CornerRadius(11), MinWidth = 0,
                 Background = c == "DEFAULT" ? (Brush)Application.Current.Resources["FondoEtiqueta"] : KeepService.Color(c),
                 BorderBrush = (Brush)Application.Current.Resources["TextoPrimario"],
-                BorderThickness = new Thickness(elegido ? 2 : 0),
+                BorderThickness = new Thickness(c == _color ? 2 : 0),
             };
             AutomationProperties.SetName(boton, c == "DEFAULT" ? "Sin color" : $"Color {c.ToLowerInvariant()}");
             boton.Click += (_, _) => { _color = c; PintarColores(); };
@@ -201,31 +255,49 @@ public sealed partial class NotasView : UserControl
 
     private void TeclaNota(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Escape) { CerrarEditor(sender, e); e.Handled = true; return; }
+        if (e.Key == VirtualKey.Escape) { Cancelar(sender, e); e.Handled = true; return; }
         bool ctrl = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down);
         if (e.Key == VirtualKey.Enter && ctrl) { e.Handled = true; Guardar(sender, e); }
     }
 
+    // Guardado optimista: la nota se ve cambiada al instante y Keep se actualiza por detrás (unos segundos).
+    // Si falla, vuelve el editor con lo escrito y el error, y la lista vuelve a como estaba.
     private async void Guardar(object sender, RoutedEventArgs e)
     {
-        var texto = TextoNota.Text.Trim();
-        if (texto == "" || !GuardarNota.IsEnabled || _editando?.Lista == true) return;
-        GuardarNota.IsEnabled = false;
-        EstadoNota.Text = "Guardando…";
+        var escrito = TextoNota.Text;
+        var texto = escrito.Trim();
+        if (texto == "") return;
 
         // Varias líneas: la primera es el título y el resto el texto. Una sola: es el texto, sin título.
         var partes = texto.Split('\r', 2);
         var (titulo, cuerpo) = partes.Length == 2 ? (partes[0].Trim(), partes[1].Trim()) : ("", texto);
         cuerpo = cuerpo.Replace('\r', '\n'); // el TextBox separa líneas con \r; Keep, con \n
-        var error = await KeepService.GuardarAsync(_editando?.Id, titulo, cuerpo, _color, _etiquetasElegidas.ToList());
 
-        GuardarNota.IsEnabled = true;
-        if (error != null) { EstadoNota.Text = error; return; } // lo escrito queda, para reintentar
-        if (_editando == null) _borradorNueva = "";
-        TextoNota.Text = "";
+        var original = _editando;
+        var (color, etiquetas) = (_color, _etiquetasElegidas.ToArray());
+        var anteriores = _notas;
+        var nueva = new Nota(original?.Id ?? "nueva", titulo, cuerpo, color, original?.Fijada ?? false, etiquetas);
+        Mostrar(original == null ? anteriores.Prepend(nueva).ToList() : anteriores.Select(n => n.Id == original.Id ? nueva : n).ToList());
         _editando = null;
-        _color = "DEFAULT";
-        _etiquetasElegidas.Clear();
-        MostrarEditor(false);
+        if (original == null) { _borrador = ("", "DEFAULT", Array.Empty<string>()); IrA(Modo.Lista); }
+        else AbrirNota(nueva);
+
+        EstadoGuardado.Text = "Guardando…";
+        var error = await KeepService.GuardarAsync(original?.Id, titulo, cuerpo, color, etiquetas);
+        if (error == null)
+        {
+            EstadoGuardado.Text = "Guardado";
+            await Task.Delay(TimeSpan.FromSeconds(3));
+            if (EstadoGuardado.Text == "Guardado") EstadoGuardado.Text = "";
+            return;
+        }
+
+        EstadoGuardado.Text = "";
+        Mostrar(anteriores);
+        _abierta = original;
+        _editando = original;
+        CargarEditor(escrito, color, etiquetas);
+        EstadoNota.Text = error;
+        IrA(Modo.Edicion);
     }
 }

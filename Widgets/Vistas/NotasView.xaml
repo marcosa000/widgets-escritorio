@@ -9,14 +9,23 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <Grid>
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
                 <TextBlock Text="Notas" Style="{StaticResource TituloWidget}" />
-                <Button HorizontalAlignment="Right" Style="{StaticResource BotonPildora}" Click="NuevaNota"
+                <!-- "Guardando…" / "Guardado": el guardado sigue por detrás mientras se usa el widget -->
+                <TextBlock x:Name="EstadoGuardado" Grid.Column="1" Style="{StaticResource Meta}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <Button Grid.Column="2" Style="{StaticResource BotonPildora}" Click="NuevaNota"
                         ToolTipService.ToolTip="Nueva nota" AutomationProperties.Name="Nueva nota">
                     <FontIcon Glyph="&#xE710;" FontSize="12" />
                 </Button>
             </Grid>
 
+            <!-- Modo lista: aviso (vacío, error) y mosaico de notas -->
             <StackPanel x:Name="Aviso" Grid.Row="1" VerticalAlignment="Top" Spacing="8">
                 <TextBlock x:Name="Mensaje" Text="Cargando…" Style="{StaticResource Meta}" TextWrapping="Wrap" />
                 <!-- Solo si Keep está sin configurar o Google rechazó su token -->
@@ -24,9 +33,9 @@
                         Style="{StaticResource BotonPildora}" Padding="14,0" FontWeight="SemiBold" />
             </StackPanel>
 
-            <!-- "Flexible": ver AgendaView. Tope de ~2 filas de notas para el alto mínimo. -->
+            <!-- "Flexible": WidgetWindow la cuenta con un tope de Tag px para el alto mínimo; si el widget es más alto,
+                 ocupa el espacio extra. La lectura y el editor toman el mismo alto que tenía la lista (ver IrA). -->
             <ScrollViewer x:Name="Flexible" Tag="200" Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                <!-- Mosaico de dos columnas, llenado en código -->
                 <Grid x:Name="Mosaico" ColumnSpacing="8" RowSpacing="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition />
@@ -35,15 +44,54 @@
                 </Grid>
             </ScrollViewer>
 
-            <!-- Editor de nota nueva: ocupa el lugar de la lista (oculto con Opacity para que el alto no cambie) -->
-            <Grid x:Name="Editor" Grid.Row="1" RowSpacing="8" VerticalAlignment="Top" Opacity="0" IsHitTestVisible="False">
+            <!-- Modo lectura: la nota completa; el lápiz o doble clic en el texto pasa a edición -->
+            <Grid x:Name="Vista" Grid.Row="1" RowSpacing="8" Visibility="Collapsed">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid ColumnSpacing="6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Ellipse x:Name="VistaColor" Width="8" Height="8" VerticalAlignment="Center" />
+                    <TextBlock x:Name="VistaTitulo" Grid.Column="1" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextoPrimario}" TextTrimming="CharacterEllipsis" />
+                    <Button x:Name="BotonEditar" Grid.Column="2" Style="{StaticResource BotonIcono}" Click="Editar"
+                            ToolTipService.ToolTip="Editar (o doble clic en el texto)" AutomationProperties.Name="Editar nota">
+                        <FontIcon Glyph="&#xE70F;" FontSize="14" />
+                    </Button>
+                    <Button Grid.Column="3" Style="{StaticResource BotonIcono}" Click="AbrirEnNavegador"
+                            ToolTipService.ToolTip="Abrir en Keep (navegador)" AutomationProperties.Name="Abrir en Keep">
+                        <FontIcon Glyph="&#xE8A7;" FontSize="14" />
+                    </Button>
+                    <Button Grid.Column="4" Style="{StaticResource BotonIcono}" Click="VolverALista"
+                            ToolTipService.ToolTip="Volver a las notas" AutomationProperties.Name="Cerrar nota">
+                        <FontIcon Glyph="&#xE711;" FontSize="12" />
+                    </Button>
+                </Grid>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                              DoubleTapped="EditarConDobleClic">
+                    <TextBlock x:Name="VistaTexto" FontSize="13" TextWrapping="Wrap" Foreground="{StaticResource TextoSecundario}" />
+                </ScrollViewer>
+                <StackPanel x:Name="VistaEtiquetas" Grid.Row="2" Orientation="Horizontal" Spacing="4" />
+            </Grid>
+
+            <!-- Modo edición: el texto ocupa el espacio; colores, etiquetas y botones quedan abajo -->
+            <Grid x:Name="Editor" Grid.Row="1" RowSpacing="8" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <TextBox x:Name="TextoNota" MaxHeight="96" AcceptsReturn="True" TextWrapping="Wrap" CornerRadius="12" IsTabStop="False"
+                <TextBox x:Name="TextoNota" MinHeight="60" AcceptsReturn="True" TextWrapping="Wrap" CornerRadius="12"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
                          PlaceholderText="Título en la primera línea, después el texto (Ctrl+Enter guarda)"
                          AutomationProperties.Name="Texto de la nota" KeyDown="TeclaNota" />
                 <StackPanel x:Name="Colores" Grid.Row="1" Orientation="Horizontal" Spacing="4" />
@@ -56,16 +104,11 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock x:Name="EstadoNota" Style="{StaticResource Meta}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                    <Button x:Name="AbrirEnKeep" Grid.Column="1" Style="{StaticResource BotonIcono}" Click="AbrirEnNavegador" Visibility="Collapsed"
-                            ToolTipService.ToolTip="Abrir en Keep (navegador)" AutomationProperties.Name="Abrir en Keep">
-                        <FontIcon Glyph="&#xE8A7;" FontSize="14" />
-                    </Button>
-                    <Button Grid.Column="2" Content="Cancelar" Click="CerrarEditor" Height="32" CornerRadius="16" Padding="12,0"
+                    <TextBlock x:Name="EstadoNota" Style="{StaticResource Meta}" VerticalAlignment="Center" TextWrapping="Wrap" MaxLines="2" />
+                    <Button Grid.Column="1" Content="Cancelar" Click="Cancelar" Height="32" CornerRadius="16" Padding="12,0"
                             Background="Transparent" BorderThickness="0" Foreground="{StaticResource TextoSecundario}" />
-                    <Button x:Name="GuardarNota" Grid.Column="3" Content="Guardar" Click="Guardar" Style="{StaticResource BotonPildora}"
+                    <Button x:Name="GuardarNota" Grid.Column="2" Content="Guardar" Click="Guardar" Style="{StaticResource BotonPildora}"
                             Padding="14,0" FontWeight="SemiBold" />
                 </Grid>
             </Grid>
