@@ -59,7 +59,7 @@ public sealed partial class MesView : UserControl
         bool hoy = dia == DateTime.Today;
         bool elegido = dia == CalendarService.DiaElegido;
         var eventos = CalendarService.Eventos.Where(e => e.Ocurre(dia)).ToList();
-        var tareas = TasksService.Tareas.Count(t => t.Vence == dia);
+        var tareas = TasksService.Tareas.Count(t => t.Vence == dia && !t.Hecha);
 
         // Un punto por evento (color de su calendario) y uno lavanda por tarea, hasta 3; el total exacto va en el tooltip.
         var colores = eventos.Select(e => (Brush)e.Color).Concat(Enumerable.Repeat((Brush)res["Acento"], tareas)).Take(MaxPuntos);

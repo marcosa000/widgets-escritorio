@@ -88,7 +88,7 @@ public sealed partial class RelojView : UserControl
 
         string? error;
         if (_modo == "tarea")
-            error = await TasksService.CrearAsync(texto);
+            error = await TasksService.GuardarAsync(null, texto);
         else
         {
             // Varias líneas: la primera es el título y el resto el texto. Una sola: es el texto, sin título.

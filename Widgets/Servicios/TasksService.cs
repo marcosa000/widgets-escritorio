@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Google.Apis.Services;
@@ -8,12 +9,30 @@ using GTasks = Google.Apis.Tasks.v1;
 
 namespace Widgets.Servicios;
 
-public record Tarea(string Id, string Titulo, DateTime? Vence);
+// Vence: solo la fecha (Tasks no guarda hora). Hecha: completada (se muestran las de los últimos días).
+public record Tarea(string Id, string Titulo, DateTime? Vence, string Notas = "", bool Hecha = false)
+{
+    public bool Vencida => !Hecha && Vence < DateTime.Today;
 
-// Tareas pendientes de la lista principal de Google Tasks; completar o desmarcar escribe en Google.
+    // "hoy", "mañana", "ayer", "vie 17", "17 oct 2027"; vacío si no tiene fecha.
+    public string Cuando => Vence is not { } v ? "" : (v - DateTime.Today).Days switch
+    {
+        0 => "hoy",
+        1 => "mañana",
+        -1 => "ayer",
+        > 1 and < 7 => v.ToString("ddd d", EsAR),
+        _ => v.ToString(v.Year == DateTime.Today.Year ? "d MMM" : "d MMM yyyy", EsAR),
+    };
+
+    private static readonly CultureInfo EsAR = new("es-AR");
+}
+
+// Tareas de la lista principal de Google Tasks: pendientes y completadas de los últimos días.
+// Crear, editar y completar escriben en Google.
 public static class TasksService
 {
     private const string Lista = "@default";
+    private const int DiasCompletadas = 14;
 
     public static event Action<IReadOnlyList<Tarea>>? Actualizado;
     public static IReadOnlyList<Tarea> Tareas { get; private set; } = Array.Empty<Tarea>();
@@ -24,22 +43,28 @@ public static class TasksService
         try
         {
             var pedido = (await Api()).Tasks.List(Lista);
-            pedido.ShowCompleted = false;
+            pedido.ShowCompleted = true;
+            pedido.ShowHidden = true; // las completadas pasan a "ocultas" cuando se limpian en Tasks
+            pedido.CompletedMin = DateTime.UtcNow.AddDays(-DiasCompletadas).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"); // RFC 3339
             pedido.MaxResults = 100;
             var tareas = (await pedido.ExecuteAsync()).Items ?? new List<GTasks.Data.Task>();
-            Tareas = tareas
-                .Where(t => !string.IsNullOrWhiteSpace(t.Title))
+            Publicar(tareas
+                .Where(t => !string.IsNullOrWhiteSpace(t.Title) && t.Deleted != true)
                 .OrderBy(t => t.Position)
-                // Tasks guarda solo la fecha de vencimiento (la hora llega siempre en 00:00 UTC): se toma el día tal cual.
-                .Select(t => new Tarea(t.Id, t.Title, t.Due is { Length: >= 10 } d ? DateTime.Parse(d[..10]) : null))
-                .ToList();
-            Publicar(Tareas);
+                .Select(Mapear)
+                .ToList());
         }
         catch (Exception ex)
         {
             Fallo?.Invoke(Errores.Texto(ex, "Tasks")); // el próximo refresco reintenta
         }
     }
+
+    // Tasks guarda solo la fecha de vencimiento (la hora llega siempre en 00:00 UTC): se toma el día tal cual.
+    private static Tarea Mapear(GTasks.Data.Task t) => new(
+        t.Id, t.Title, t.Due is { Length: >= 10 } d ? DateTime.Parse(d[..10]) : null, t.Notes ?? "", t.Status == "completed");
+
+    private static string? FormatoTasks(DateTime? dia) => dia?.ToString("yyyy-MM-dd'T'00:00:00.000'Z'");
 
     // También lo usa el modo demostración (Demo.cs).
     internal static void Publicar(IReadOnlyList<Tarea> tareas)
@@ -54,9 +79,7 @@ public static class TasksService
         if (Demo.Activo) return true; // en demo la casilla cambia, pero no se escribe en Google
         try
         {
-            // Al volver a "needsAction", Google borra solo la fecha de completada.
-            var cambio = new GTasks.Data.Task { Status = hecha ? "completed" : "needsAction" };
-            await (await Api()).Tasks.Patch(cambio, Lista, id).ExecuteAsync();
+            await ReemplazarAsync(id, t => { t.Status = hecha ? "completed" : "needsAction"; if (!hecha) t.Completed = null; });
             return true;
         }
         catch (Exception ex)
@@ -66,20 +89,34 @@ public static class TasksService
         }
     }
 
-    // Crea la tarea en la lista principal y refresca. Devuelve el error, o null si salió bien.
-    public static async Task<string?> CrearAsync(string titulo)
+    // Sin id crea la tarea; con id la edita. Vence null = sin fecha. Después refresca.
+    // Devuelve el error, o null si salió bien.
+    public static async Task<string?> GuardarAsync(string? id, string titulo, string notas = "", DateTime? vence = null)
     {
         if (Demo.Activo) return "Modo demostración: no se guarda nada";
         try
         {
-            await (await Api()).Tasks.Insert(new GTasks.Data.Task { Title = titulo }, Lista).ExecuteAsync();
-            _ = RefrescarAsync();
+            if (id == null)
+                await (await Api()).Tasks.Insert(new GTasks.Data.Task { Title = titulo, Notes = notas, Due = FormatoTasks(vence) }, Lista).ExecuteAsync();
+            else
+                await ReemplazarAsync(id, t => { t.Title = titulo; t.Notes = notas; t.Due = FormatoTasks(vence); });
+            await RefrescarAsync();
             return null;
         }
         catch (Exception ex)
         {
             return Errores.Texto(ex, "Tasks");
         }
+    }
+
+    // Trae la tarea, la cambia y la reemplaza entera: es la única forma de borrar campos (fecha, completada),
+    // porque un cambio parcial omite los vacíos.
+    private static async Task ReemplazarAsync(string id, Action<GTasks.Data.Task> cambiar)
+    {
+        var api = await Api();
+        var tarea = await api.Tasks.Get(Lista, id).ExecuteAsync();
+        cambiar(tarea);
+        await api.Tasks.Update(tarea, Lista, id).ExecuteAsync();
     }
 
     private static async Task<GTasks.TasksService> Api() => new(new BaseClientService.Initializer

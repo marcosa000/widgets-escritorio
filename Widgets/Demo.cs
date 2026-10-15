@@ -38,10 +38,11 @@ public static class Demo
 
         TasksService.Publicar(new[]
         {
-            new Tarea("1", "Entregar el TP de Sistemas Operativos", hoy.AddDays(1)),
+            new Tarea("1", "Entregar el TP de Sistemas Operativos", hoy.AddDays(1), "Subirlo al campus en PDF"),
             new Tarea("2", "Resolver la guía de ejercicios 3", hoy.AddDays(3)),
-            new Tarea("3", "Comprar apuntes", null),
-            new Tarea("4", "Renovar la credencial de la biblioteca", null),
+            new Tarea("3", "Pagar la cuota del gimnasio", hoy.AddDays(-2)),
+            new Tarea("4", "Comprar apuntes", null),
+            new Tarea("5", "Renovar la credencial de la biblioteca", null, "", true),
         });
 
         GDrive.File Archivo(string nombre, string tipo, double horasAtras) => new()
