@@ -17,7 +17,12 @@
                 </Button>
             </Grid>
 
-            <TextBlock x:Name="Mensaje" Grid.Row="1" VerticalAlignment="Top" Text="Cargando…" Style="{StaticResource Meta}" TextWrapping="Wrap" />
+            <StackPanel x:Name="Aviso" Grid.Row="1" VerticalAlignment="Top" Spacing="8">
+                <TextBlock x:Name="Mensaje" Text="Cargando…" Style="{StaticResource Meta}" TextWrapping="Wrap" />
+                <!-- Solo si Keep está sin configurar o Google rechazó su token -->
+                <Button x:Name="ConfigurarKeep" Content="Configurar Keep" Click="Configurar" Visibility="Collapsed"
+                        Style="{StaticResource BotonPildora}" Padding="14,0" FontWeight="SemiBold" />
+            </StackPanel>
 
             <!-- "Flexible": ver AgendaView. Tope de ~2 filas de notas para el alto mínimo. -->
             <ScrollViewer x:Name="Flexible" Tag="200" Grid.Row="1" VerticalScrollBarVisibility="Auto">

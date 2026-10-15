@@ -26,6 +26,7 @@ public sealed partial class NotasView : UserControl
             // Con error, la lista vieja se oculta (sin cambiar el alto) para que el mensaje se lea.
             Mensaje.Text = texto;
             Mensaje.Visibility = Visibility.Visible;
+            ConfigurarKeep.Visibility = KeepService.FaltaConfigurar ? Visibility.Visible : Visibility.Collapsed;
             if (!Editor.IsHitTestVisible) { Flexible.Opacity = 0; Flexible.IsHitTestVisible = false; }
         };
     }
@@ -77,6 +78,7 @@ public sealed partial class NotasView : UserControl
             Grid.SetColumn(nota, i % 2);
             Mosaico.Children.Add(nota);
         }
+        ConfigurarKeep.Visibility = Visibility.Collapsed;
         Mensaje.Text = "Sin notas";
         Mensaje.Visibility = notas.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (!Editor.IsHitTestVisible) { Flexible.Opacity = 1; Flexible.IsHitTestVisible = true; }
@@ -101,6 +103,15 @@ public sealed partial class NotasView : UserControl
     private string _color = "DEFAULT";
     private readonly HashSet<string> _etiquetasElegidas = new();
     private string _borradorNueva = "";      // lo escrito en una nota nueva no se pierde al abrir otra
+
+    // Abre una ventana de PowerShell con configurar_keep.py; al cerrarla, el widget vuelve a leer Keep.
+    private async void Configurar(object sender, RoutedEventArgs e)
+    {
+        ConfigurarKeep.IsEnabled = false;
+        Mensaje.Text = "Seguí los pasos en la ventana de PowerShell…";
+        await KeepService.ConfigurarAsync();
+        ConfigurarKeep.IsEnabled = true;
+    }
 
     private void NuevaNota(object sender, RoutedEventArgs e)
     {
@@ -148,7 +159,8 @@ public sealed partial class NotasView : UserControl
     {
         Editor.Opacity = visible ? 1 : 0;
         Editor.IsHitTestVisible = TextoNota.IsTabStop = visible;
-        Flexible.Opacity = Mensaje.Opacity = visible ? 0 : 1;
+        Flexible.Opacity = Aviso.Opacity = visible ? 0 : 1;
+        Aviso.IsHitTestVisible = !visible;
         Flexible.IsHitTestVisible = !visible;
     }
 

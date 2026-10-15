@@ -53,13 +53,34 @@ public static class KeepService
         {
             var salida = JsonSerializer.Deserialize<SalidaJson>(await EjecutarAsync());
             Etiquetas = salida?.etiquetas ?? new();
+            FaltaConfigurar = false;
             Publicar((salida?.notas ?? new()).Select(n => new Nota(n.id, n.titulo ?? "", n.texto ?? "", n.color ?? "DEFAULT",
                 n.fijada, n.etiquetas ?? new(), n.lista)).ToList());
         }
         catch (Exception ex)
         {
+            FaltaConfigurar = ex is ErrorKeep { Codigo: 2 or 3 };
             Fallo?.Invoke(Explicar(ex));
         }
+    }
+
+    // Keep sin configurar o con el token rechazado: la vista muestra el botón "Configurar Keep".
+    public static bool FaltaConfigurar { get; private set; }
+
+    // Abre una ventana de PowerShell que corre configurar_keep.py (pide datos, por eso es una ventana visible)
+    // y, cuando se cierra, vuelve a leer Keep.
+    public static async Task ConfigurarAsync()
+    {
+        var configurador = Path.Combine(AppContext.BaseDirectory, "keep", "configurar_keep.py").Replace("'", "''");
+        var proceso = Process.Start(new ProcessStartInfo("powershell.exe")
+        {
+            ArgumentList = { "-NoProfile", "-Command", $"python -I '{configurador}'; Read-Host 'Enter para cerrar'" },
+            UseShellExecute = false,
+            CreateNoWindow = false, // la app no tiene consola: así abre una ventana propia
+        });
+        if (proceso == null) return;
+        await proceso.WaitForExitAsync();
+        await RefrescarAsync();
     }
 
     // Sin id crea una nota; con id edita esa. Después refresca. Devuelve el error, o null si salió bien.
@@ -82,8 +103,8 @@ public static class KeepService
     private static string Explicar(Exception ex) => ex switch
     {
         System.ComponentModel.Win32Exception => "No encontré Python. Instalalo o agregalo al PATH.",
-        ErrorKeep { Codigo: 3 } => "Keep cerró la sesión: volvé a correr keep\\configurar_keep.py",
-        ErrorKeep { Codigo: 2 } => "Keep no está configurado: corré keep\\configurar_keep.py",
+        ErrorKeep { Codigo: 3 } => "Keep cerró la sesión. Tocá Configurar Keep para volver a conectarlo.",
+        ErrorKeep { Codigo: 2 } => "Keep no está configurado. Tocá Configurar Keep para conectarlo.",
         _ => "No se pudo usar Keep: " + ex.Message,
     };
 
