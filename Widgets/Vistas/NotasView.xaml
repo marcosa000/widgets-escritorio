@@ -95,7 +95,8 @@
                          PlaceholderText="Título en la primera línea, después el texto (Ctrl+Enter guarda)"
                          AutomationProperties.Name="Texto de la nota" KeyDown="TeclaNota" />
                 <StackPanel x:Name="Colores" Grid.Row="1" Orientation="Horizontal" Spacing="4" />
-                <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                <!-- Sin barra visible (tapaba los chips): se desplaza con la rueda del mouse o el touchpad -->
+                <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
                               HorizontalScrollMode="Enabled" VerticalScrollMode="Disabled">
                     <StackPanel x:Name="EtiquetasEditor" Orientation="Horizontal" Spacing="4" />
                 </ScrollViewer>
