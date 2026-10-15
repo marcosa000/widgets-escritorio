@@ -163,7 +163,6 @@ public sealed partial class NotasView : UserControl
         foreach (var e in n.Etiquetas) VistaEtiquetas.Children.Add(Chip(e, (Brush)Application.Current.Resources["TextoSecundario"]));
         // Las listas con casillas no son texto plano: editarlas como texto las rompería. Se editan en Keep.
         BotonEditar.Visibility = n.Lista ? Visibility.Collapsed : Visibility.Visible;
-        ToolTipService.SetToolTip(VistaTexto, n.Lista ? "Lista con casillas: se edita en Keep" : "Doble clic para editar");
         IrA(Modo.Lectura);
     }
 
