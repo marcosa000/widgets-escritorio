@@ -18,6 +18,7 @@ public partial class App : Application
     private int _yElegida;                          // altura donde el usuario dejó el bloque (antes de ajustarlo a la pantalla)
     private bool _ubicado;
     private readonly DispatcherTimer _refresco = new() { Interval = TimeSpan.FromMinutes(5) };
+    private int _vueltas;
     private (bool Derecha, int Y, int Alto)[] _lugares = Array.Empty<(bool, int, int)>();
     private int _reparto;                           // bit i = 1: el widget i va a la derecha
     private bool _repartoFijo;                      // se fija cuando el usuario toca un borde: nada salta de columna
@@ -50,7 +51,9 @@ public partial class App : Application
             w.Activate();
         }
         // Después de crear las vistas, que ya se suscribieron a los servicios.
-        _refresco.Tick += (_, _) => RefrescarTodo();
+        // Keep cada 30 minutos (cada 6 vueltas): cada lectura es un inicio de sesión no oficial en Google,
+        // y muchos seguidos pueden disparar alertas de seguridad. ↻ y crear o editar una nota lo leen al momento.
+        _refresco.Tick += (_, _) => RefrescarTodo(incluirKeep: ++_vueltas % 6 == 0);
         _refresco.Start();
         RefrescarTodo();
     }
@@ -185,13 +188,13 @@ public partial class App : Application
 
     private int ColumnaX(int col) => _origen.X + (col == 1 ? _anchos[0] + (int)(16 * _ventanas[0].Escala) : 0);
 
-    public static void RefrescarTodo()
+    public static void RefrescarTodo(bool incluirKeep = true)
     {
         if (Demo.Activo) { Demo.Cargar(); return; }
         _ = Servicios.CalendarService.RefrescarAsync();
         _ = Servicios.TasksService.RefrescarAsync();
         _ = Servicios.DriveService.RefrescarAsync();
-        _ = Servicios.KeepService.RefrescarAsync();
+        if (incluirKeep) _ = Servicios.KeepService.RefrescarAsync();
     }
 
     public static void Abrir(string uri) => _ = Launcher.LaunchUriAsync(new Uri(uri));
