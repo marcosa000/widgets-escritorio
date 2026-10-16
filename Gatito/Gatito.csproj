@@ -12,6 +12,8 @@
   <ItemGroup>
     <!-- Poses del gato, generadas con arte\recortar.py a partir de la hoja de Gemini -->
     <Resource Include="sprites\*.png" />
+    <!-- Efectos en pixel art (z, corazones, globitos), generados con arte\efectos.py -->
+    <Resource Include="efectos\*.png" />
     <None Remove="arte\**" />
   </ItemGroup>
 

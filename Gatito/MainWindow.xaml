@@ -5,26 +5,10 @@
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize"
         Width="90" Height="110"
-        MouseLeftButtonDown="Presionar" MouseMove="Mover" MouseLeftButtonUp="Soltar">
-    <Window.ContextMenu>
-        <ContextMenu>
-            <MenuItem Header="Dormir" Click="Dormir" />
-            <MenuItem Header="Despertar" Click="Despertar" />
-            <Separator />
-            <MenuItem Header="Cerrar a Simón" Click="Cerrar" />
-        </ContextMenu>
-    </Window.ContextMenu>
+        MouseLeftButtonDown="Presionar" MouseMove="Mover" MouseLeftButtonUp="Soltar"
+        MouseRightButtonUp="DormirConClicDerecho">
     <!-- Ventana transparente: los clics sobre lo transparente pasan a lo que hay debajo; solo Simón los recibe. -->
     <Grid>
-        <!-- Globito: "¡miau!" al asustarse, "♥ prrr" con un mimo -->
-        <Border x:Name="Globo" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,4,0,0"
-                Background="#F2FFFFFF" CornerRadius="10" Padding="8,3" Visibility="Collapsed">
-            <TextBlock x:Name="GloboTexto" Text="¡miau!" FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold" Foreground="#3A3A3A" />
-        </Border>
-        <!-- zzz al dormir -->
-        <TextBlock x:Name="Zzz" Text="z" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,50,6,0"
-                   FontFamily="Segoe UI" FontSize="16" FontWeight="Bold" Foreground="#E6E1E9" Visibility="Collapsed" />
-
         <Image x:Name="Sprite" VerticalAlignment="Bottom" HorizontalAlignment="Center"
                RenderOptions.BitmapScalingMode="NearestNeighbor" RenderTransformOrigin="0.5,1">
             <Image.RenderTransform>
@@ -32,5 +16,7 @@
                 <ScaleTransform x:Name="Volteo" ScaleX="1" />
             </Image.RenderTransform>
         </Image>
+        <!-- Efectos en pixel art (z, corazones, globitos): flotan sobre Simón -->
+        <Canvas x:Name="Efectos" IsHitTestVisible="False" />
     </Grid>
 </Window>

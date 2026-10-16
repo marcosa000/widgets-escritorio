@@ -1,18 +1,35 @@
 ﻿using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace Gatito;
 
-// Simón camina por el borde de arriba de la barra de tareas y a veces descansa.
-// Un clic lo asusta (¡miau!); doble clic es un mimo (mira de frente, ♥ prrr); arrastrándolo se lo cambia de lugar
-// y cae de nuevo a la barra. Con clic derecho: dormir, despertar o cerrar.
+// Simón camina por el borde de arriba de la barra de tareas y, al azar, se sienta, se lame, se estira, mira o duerme.
+// Un clic lo asusta (MIAU!); doble clic es un mimo (mira de frente, suben corazones); arrastrándolo se lo cambia de
+// lugar y cae de nuevo a la barra; clic derecho lo duerme un rato. Los efectos están en pixel art, como él.
 public partial class MainWindow : Window
 {
     private enum Estado { Caminar, Sentado, Lamiendo, Estirando, Mirando, Durmiendo, Susto, Mimo, Arrastrado, Cayendo }
+
+    // Qué hace después de cada estado, con su peso (probabilidad relativa). Así el orden nunca es el mismo:
+    // dormido → se estira → camina, o → se queda sentado → se lame → vuelve a dormir…
+    private static readonly Dictionary<Estado, (Estado Hacia, int Peso)[]> Despues = new()
+    {
+        [Estado.Caminar] = new[] { (Estado.Caminar, 20), (Estado.Sentado, 22), (Estado.Lamiendo, 8), (Estado.Estirando, 20), (Estado.Mirando, 15), (Estado.Durmiendo, 15) },
+        [Estado.Sentado] = new[] { (Estado.Lamiendo, 22), (Estado.Mirando, 15), (Estado.Durmiendo, 25), (Estado.Estirando, 15), (Estado.Caminar, 23) },
+        [Estado.Lamiendo] = new[] { (Estado.Sentado, 35), (Estado.Caminar, 30), (Estado.Durmiendo, 15), (Estado.Estirando, 20) },
+        [Estado.Estirando] = new[] { (Estado.Caminar, 45), (Estado.Sentado, 30), (Estado.Mirando, 10), (Estado.Lamiendo, 15) },
+        [Estado.Mirando] = new[] { (Estado.Sentado, 25), (Estado.Caminar, 35), (Estado.Estirando, 20), (Estado.Durmiendo, 10), (Estado.Lamiendo, 10) },
+        [Estado.Durmiendo] = new[] { (Estado.Estirando, 70), (Estado.Sentado, 30) },   // al despertar casi siempre se estira
+        [Estado.Susto] = new[] { (Estado.Caminar, 55), (Estado.Sentado, 25), (Estado.Estirando, 10), (Estado.Mirando, 10) },
+        [Estado.Mimo] = new[] { (Estado.Sentado, 45), (Estado.Caminar, 25), (Estado.Lamiendo, 15), (Estado.Durmiendo, 15) },
+        [Estado.Cayendo] = new[] { (Estado.Sentado, 40), (Estado.Caminar, 40), (Estado.Estirando, 20) },
+    };
 
     private const double Escala = 1;          // pixel art 1:1: cada píxel del dibujo es un píxel de pantalla (al 100 %)
     private const double Velocidad = 2.5;     // DIP por tick (10 por segundo); cada cuadro de la caminata dura 2 ticks
@@ -25,7 +42,10 @@ public partial class MainWindow : Window
 
     private static readonly string[] Nombres =
         { "caminar1", "caminar2", "caminar3", "caminar4", "sentado", "lamiendo", "estirando", "susto", "durmiendo1", "durmiendo2", "colgando", "mirando" };
+    private static readonly string[] NombresEfectos =
+        { "fx_z1", "fx_z2", "fx_z3", "fx_corazon1", "fx_corazon2", "fx_corazon3", "fx_prrr", "fx_miau" };
     private readonly Dictionary<string, BitmapImage> _poses = new();
+    private readonly Dictionary<string, BitmapImage> _efectos = new();
     private readonly DispatcherTimer _reloj = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly DispatcherTimer _vigia = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly Random _azar = new();
@@ -46,6 +66,8 @@ public partial class MainWindow : Window
         InitializeComponent();
         foreach (var n in Nombres)
             _poses[n] = new BitmapImage(new Uri($"pack://application:,,,/sprites/{n}.png"));
+        foreach (var n in NombresEfectos)
+            _efectos[n] = new BitmapImage(new Uri($"pack://application:,,,/efectos/{n}.png"));
 
         var area = SystemParameters.WorkArea;
         _x = area.Left + _azar.NextDouble() * (area.Width - Width);
@@ -79,6 +101,7 @@ public partial class MainWindow : Window
     private void Avanzar()
     {
         _cuadro++;
+        MoverParticulas();
         switch (_estado)
         {
             case Estado.Caminar:
@@ -96,7 +119,10 @@ public partial class MainWindow : Window
                 break;
             case Estado.Durmiendo:
                 Mostrar(_cuadro / 15 % 2 == 0 ? "durmiendo1" : "durmiendo2");
-                Zzz.Text = new string('z', _cuadro / 6 % 3 + 1);
+                if (_cuadro % 9 == 4) EmitirZ();               // una "z" cada ~1 s, de a una y de distinto tamaño
+                break;
+            case Estado.Mimo:
+                if (_cuadro % 4 == 1 && _cuadro < 28) EmitirCorazon();
                 break;
             case Estado.Susto:
                 _altura = Math.Max(0, _altura + _velocidadY);
@@ -105,40 +131,32 @@ public partial class MainWindow : Window
             case Estado.Cayendo:
                 _velocidadY -= Gravedad;
                 _altura = Math.Max(0, _altura + _velocidadY);
-                if (_altura == 0) Cambiar(Estado.Sentado);
+                if (_altura == 0) Siguiente(Estado.Cayendo);
                 break;
             case Estado.Arrastrado:
                 return; // lo mueve el mouse
         }
         Posicionar();
-        if (_cuadro >= _duracion && _estado is not (Estado.Cayendo or Estado.Arrastrado)) Siguiente();
+        if (_cuadro >= _duracion && _estado is not (Estado.Cayendo or Estado.Arrastrado)) Siguiente(_estado);
     }
 
-    // Qué hace después: casi siempre vuelve a caminar; a veces descansa un rato.
-    private void Siguiente()
+    // Elige al azar, con los pesos de la tabla, qué hace después de `desde`.
+    private void Siguiente(Estado desde)
     {
-        if (_estado == Estado.Mimo) { Cambiar(Estado.Sentado); return; }   // después del mimo se queda un rato
-        if (_estado != Estado.Caminar) { Cambiar(Estado.Caminar); return; }
-        var r = _azar.NextDouble();
-        Cambiar(r switch
+        var opciones = Despues[desde];
+        var r = _azar.Next(opciones.Sum(o => o.Peso));
+        foreach (var (hacia, peso) in opciones)
         {
-            < 0.25 => Estado.Sentado,
-            < 0.40 => Estado.Lamiendo,
-            < 0.50 => Estado.Estirando,
-            < 0.62 => Estado.Mirando,
-            < 0.75 => Estado.Durmiendo,
-            _ => Estado.Caminar,
-        });
+            if (r < peso) { Cambiar(hacia); return; }
+            r -= peso;
+        }
     }
 
     private void Cambiar(Estado nuevo)
     {
-        if (_estado == Estado.Durmiendo && nuevo == Estado.Caminar) nuevo = Estado.Estirando; // al despertar se estira
         _estado = nuevo;
         _cuadro = 0;
-        Zzz.Visibility = nuevo == Estado.Durmiendo ? Visibility.Visible : Visibility.Collapsed;
-        Globo.Visibility = nuevo is Estado.Susto or Estado.Mimo ? Visibility.Visible : Visibility.Collapsed;
-        GloboTexto.Text = nuevo == Estado.Mimo ? "♥ prrr" : "¡miau!";
+        QuitarEfectos();
         (_duracion, var pose) = nuevo switch
         {
             Estado.Caminar => (_azar.Next(50, 150), "caminar1"),
@@ -146,7 +164,7 @@ public partial class MainWindow : Window
             Estado.Lamiendo => (_azar.Next(30, 60), "lamiendo"),
             Estado.Estirando => (20, "estirando"),
             Estado.Mirando => (_azar.Next(30, 60), "mirando"),
-            Estado.Durmiendo => (_azar.Next(200, 600), "durmiendo1"),
+            Estado.Durmiendo => (_azar.Next(200, 450), "durmiendo1"),   // despierta solo entre 20 y 45 s después
             Estado.Susto => (12, "susto"),
             Estado.Mimo => (35, "mirando"),
             _ => (0, "colgando"), // arrastrado o cayendo: colgando en el aire
@@ -154,6 +172,9 @@ public partial class MainWindow : Window
         if (nuevo == Estado.Caminar && _azar.NextDouble() < 0.3) _direccion = -_direccion;
         if (nuevo == Estado.Susto) _velocidadY = 12;
         Mostrar(pose);
+        // Los globitos se ponen después de elegir la pose, porque van encima de ella.
+        if (nuevo == Estado.Susto) Emitir("fx_miau", Width / 2, ArribaSprite - 6, 0, 0, 12);
+        if (nuevo == Estado.Mimo) Emitir("fx_prrr", Width / 2, ArribaSprite - 6, 0, 0, 34);
     }
 
     private void Mostrar(string pose)
@@ -173,7 +194,74 @@ public partial class MainWindow : Window
         Top = SystemParameters.WorkArea.Bottom + Posado - Height - _altura;
     }
 
-    // ── Mouse: clic = susto; arrastrar = moverlo ──
+    // ── Efectos en pixel art: "z" azules, corazones rojos y globitos ──
+
+    private sealed class Particula
+    {
+        public Image Imagen = null!;
+        public double X, Y, Vx, Vy, Deriva;   // centro de la imagen (DIP), velocidad por tick y vaivén lateral
+        public int Edad, Vida, Fase;
+    }
+
+    private readonly List<Particula> _particulas = new();
+
+    // Arriba de la imagen de Simón, en coordenadas de la ventana.
+    private double ArribaSprite => Height - Sprite.Margin.Bottom - Sprite.Height;
+
+    private void Emitir(string nombre, double x, double y, double vx, double vy, int vida, double deriva = 0)
+    {
+        var fuente = _efectos[nombre];
+        var imagen = new Image { Source = fuente, Width = fuente.PixelWidth, Height = fuente.PixelHeight };
+        RenderOptions.SetBitmapScalingMode(imagen, BitmapScalingMode.NearestNeighbor);
+        Efectos.Children.Add(imagen);
+        var p = new Particula { Imagen = imagen, X = x, Y = y, Vx = vx, Vy = vy, Vida = vida, Deriva = deriva, Fase = _azar.Next(0, 6) };
+        _particulas.Add(p);
+        Colocar(p);
+    }
+
+    private void Colocar(Particula p)
+    {
+        // En píxeles enteros: el pixel art no se desliza entre píxeles.
+        Canvas.SetLeft(p.Imagen, Math.Round(p.X + Math.Sin(p.Edad * 0.35 + p.Fase) * p.Deriva - p.Imagen.Width / 2));
+        Canvas.SetTop(p.Imagen, Math.Round(p.Y - p.Imagen.Height / 2));
+        var resta = p.Vida - p.Edad;
+        p.Imagen.Opacity = resta <= 3 ? 0.3 : resta <= 6 ? 0.65 : 1;   // se desvanece en pasos, no de corrido
+    }
+
+    private void MoverParticulas()
+    {
+        for (int i = _particulas.Count - 1; i >= 0; i--)
+        {
+            var p = _particulas[i];
+            p.Edad++;
+            if (p.Edad >= p.Vida) { Efectos.Children.Remove(p.Imagen); _particulas.RemoveAt(i); continue; }
+            p.X += p.Vx;
+            p.Y += p.Vy;
+            Colocar(p);
+        }
+    }
+
+    private void QuitarEfectos()
+    {
+        Efectos.Children.Clear();
+        _particulas.Clear();
+    }
+
+    // Salen de arriba de la cabeza (dormido, la cabeza queda del lado al que mira), flotan hacia arriba y se desvanecen.
+    private void EmitirZ()
+    {
+        var cabeza = Width / 2 + _direccion * (Sprite.Width / 2 - 10);
+        Emitir($"fx_z{_azar.Next(1, 4)}", cabeza, ArribaSprite + 5, 0.25 * _direccion, -0.55, 46, deriva: 2);
+    }
+
+    // Del costado de la cabeza (mirando de frente), de a uno y de distinto tamaño.
+    private void EmitirCorazon()
+    {
+        var lado = _azar.Next(2) == 0 ? -1 : 1;
+        Emitir($"fx_corazon{_azar.Next(1, 4)}", Width / 2 + lado * _azar.Next(21, 31), ArribaSprite + 12, 0, -0.8, 22, deriva: 2);
+    }
+
+    // ── Mouse: clic = susto, doble clic = mimo, arrastrar = moverlo, clic derecho = dormir ──
 
     private void Presionar(object sender, MouseButtonEventArgs e)
     {
@@ -214,17 +302,13 @@ public partial class MainWindow : Window
         else _clicSuelto.Start();
     }
 
-    // ── Menú de clic derecho ──
-
-    private void Dormir(object sender, RoutedEventArgs e)
+    // Se duerme un rato y despierta solo (ver la duración de Durmiendo en Cambiar).
+    private void DormirConClicDerecho(object sender, MouseButtonEventArgs e)
     {
+        if (_estado is Estado.Arrastrado or Estado.Cayendo) return;
+        _clicSuelto.Stop();
         Cambiar(Estado.Durmiendo);
-        _duracion = int.MaxValue;   // dormido hasta que lo toquen o se elija Despertar
     }
-
-    private void Despertar(object sender, RoutedEventArgs e) => Cambiar(Estado.Estirando);
-
-    private void Cerrar(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
 
     // ── Pantalla completa ──
 
