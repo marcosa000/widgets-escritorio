@@ -96,7 +96,7 @@ def linea_lomo(px, desde, hasta, lado="arriba"):
 
 # ── Caminata ──
 # Se usan los 4 cuadros de la IA (la forma de las patas es buena) y se corrigen los colores. La IA hizo los
-# cuadros 1≈3 y 2≈4: pintar de blanco una pata delantera distinta en cada uno hace que se lean como pasos alternados.
+# cuadros 1≈3 y 2≈4: la pata blanca (la cercana) se elige en cada cuadro para que vaya y venga como un péndulo.
 PELAJE = [ATIGRADO, ATIGRADO_CLARO, RAYA, RAYA_OSCURA, (87, 78, 66), (155, 138, 128)]
 PIERNAS = 48                     # de esta fila para abajo, patas (más arriba, el cuerpo y el pecho blanco)
 TRASERAS = (4, 40)               # columnas de las patas traseras
@@ -104,7 +104,7 @@ DELANTERA_BLANCA = {             # recuadro (x0, x1) de la pata delantera cercan
     "caminar_ia1": (52, 70),     # la que va adelante
     "caminar_ia2": (49, 56),     # la vertical
     "caminar_ia3": (43, 51),     # la de atrás
-    "caminar_ia4": (56, 70),     # la que va adelante
+    "caminar_ia4": (44, 52),     # la vertical: vuelve hacia adelante pasando por el medio (adelante → medio → atrás → medio)
 }
 
 
