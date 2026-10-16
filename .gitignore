@@ -4,3 +4,5 @@ publicado/
 # Credenciales: nunca al repo
 client_secret*.json
 *token*.json
+Gatito/bin/
+Gatito/obj/
