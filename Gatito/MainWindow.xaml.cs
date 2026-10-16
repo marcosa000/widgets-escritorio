@@ -18,6 +18,10 @@ public partial class MainWindow : Window
     // 12 / 6 ticks = 2, así las patitas no patinan sobre la barra.
     private const double Velocidad = 2;
     private const int CuadrosCaminata = 6;
+    // La ventana baja este tanto sobre la barra de tareas: caminando, las patas quedan en el borde; en las poses de
+    // descanso la imagen baja y la cola y la panza se apoyan apenas sobre la barra.
+    private const double Posado = 5;
+    private static readonly HashSet<string> PosesPosado = new() { "sentado", "lamiendo", "mirando", "durmiendo1", "durmiendo2" };
     private const double Gravedad = 2.5;
 
     private static readonly string[] Nombres =
@@ -49,8 +53,14 @@ public partial class MainWindow : Window
 
         _reloj.Tick += (_, _) => Avanzar();
         _reloj.Start();
-        // Si hay un video o un juego en pantalla completa, Simón se esconde.
-        _vigia.Tick += (_, _) => Visibility = PantallaCompleta() ? Visibility.Hidden : Visibility.Visible;
+        // Si hay un video o un juego en pantalla completa, Simón se esconde. Si no, se vuelve a poner adelante:
+        // la barra de tareas también está "siempre arriba" y, si no, al tocarla lo taparía.
+        _vigia.Tick += (_, _) =>
+        {
+            Visibility = PantallaCompleta() ? Visibility.Hidden : Visibility.Visible;
+            if (Visibility == Visibility.Visible)
+                SetWindowPos(new WindowInteropHelper(this).Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        };
         _vigia.Start();
     }
 
@@ -147,6 +157,7 @@ public partial class MainWindow : Window
         Sprite.Source = imagen;
         Sprite.Width = imagen.PixelWidth * Escala;
         Sprite.Height = imagen.PixelHeight * Escala;
+        Sprite.Margin = new Thickness(0, 0, 0, PosesPosado.Contains(pose) ? 0 : Posado);
         Volteo.ScaleX = _direccion;
     }
 
@@ -154,7 +165,7 @@ public partial class MainWindow : Window
     private void Posicionar()
     {
         Left = _x;
-        Top = SystemParameters.WorkArea.Bottom - Height - _altura;
+        Top = SystemParameters.WorkArea.Bottom + Posado - Height - _altura;
     }
 
     // ── Mouse: clic = susto; arrastrar = moverlo ──
@@ -178,7 +189,7 @@ public partial class MainWindow : Window
         var dpi = PresentationSource.FromVisual(this)?.CompositionTarget.TransformFromDevice ?? System.Windows.Media.Matrix.Identity;
         var enDip = dpi.Transform(cursor);
         _x = enDip.X - agarre.X;
-        _altura = Math.Max(0, SystemParameters.WorkArea.Bottom - Height - (enDip.Y - agarre.Y));
+        _altura = Math.Max(0, SystemParameters.WorkArea.Bottom + Posado - Height - (enDip.Y - agarre.Y));
         Posicionar();
     }
 
@@ -197,9 +208,12 @@ public partial class MainWindow : Window
         SHQueryUserNotificationState(out var estado) == 0 && estado is QUNS_BUSY or QUNS_RUNNING_D3D_FULL_SCREEN or QUNS_PRESENTATION_MODE;
 
     private const int GWL_EXSTYLE = -20, WS_EX_TOOLWINDOW = 0x80, WS_EX_NOACTIVATE = 0x08000000;
+    private static readonly IntPtr HWND_TOPMOST = new(-1);
+    private const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOACTIVATE = 0x10;
     private const int QUNS_BUSY = 2, QUNS_RUNNING_D3D_FULL_SCREEN = 3, QUNS_PRESENTATION_MODE = 4;
 
     [DllImport("user32.dll")] private static extern int GetWindowLong(IntPtr hWnd, int index);
     [DllImport("user32.dll")] private static extern int SetWindowLong(IntPtr hWnd, int index, int value);
+    [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("shell32.dll")] private static extern int SHQueryUserNotificationState(out int estado);
 }

@@ -32,10 +32,14 @@ ATIGRADO, ATIGRADO_CLARO, RAYA, RAYA_OSCURA = (112, 99, 82), (138, 124, 106), (6
 PALETA = np.array([
     CONTORNO, BLANCO, BLANCO_SOMBRA, ATIGRADO, ATIGRADO_CLARO, RAYA, RAYA_OSCURA,
     (87, 78, 66), (155, 138, 128),            # tonos intermedios del pelaje
-    (38, 150, 140), (22, 105, 98),            # collar turquesa
+    (38, 150, 140), (22, 105, 98),            # collar (la IA lo dibujó turquesa; se repinta de amarillo)
     (135, 200, 90), (60, 120, 50),            # ojos verdes
     (232, 150, 150), (190, 110, 110),         # nariz y orejas rosadas
 ])
+
+
+# El collar de Simón es amarillo: el turquesa de la IA se reconoce con la paleta y se repinta.
+COLLAR = {(38, 150, 140): (240, 198, 46), (22, 105, 98): (178, 138, 22)}
 
 
 def a_grilla(celda_rgb):
@@ -48,7 +52,9 @@ def a_grilla(celda_rgb):
     color = c[ys][:, xs]
     opaco = magenta[ys][:, xs] < 110
     d = ((color[:, :, None, :] - PALETA[None, None]) ** 2).sum(-1)
-    q = PALETA[d.argmin(-1)]
+    q = PALETA[d.argmin(-1)].copy()
+    for ia, propio in COLLAR.items():
+        q[np.all(q == ia, axis=-1)] = propio
     return np.dstack([q, np.where(opaco, 255, 0)]).astype(np.uint8)
 
 
@@ -92,49 +98,73 @@ def linea_lomo(px, desde, hasta, lado="arriba"):
 
 TOPE_CUERPO = 46           # en el cuadro de la IA, de esta fila para abajo son patas
 SUELO = 61                 # fila donde apoyan las patitas
-AMPLITUD = 6               # cuánto adelanta/atrasa cada pata (px)
-# Articulaciones (hombro/cadera) en la fila TOPE_CUERPO-1. Cerca = lado izquierdo de Simón (el que se ve).
-PATAS = {                  # x, fase, delantera, cercana
-    "trasera_lejos": (21, 0.0, False, False),
-    "delantera_lejos": (47, np.pi, True, False),
-    "trasera_cerca": (26, np.pi, False, True),
-    "delantera_cerca": (52, 0.0, True, True),
-}
+GIRO = 0.38                # cuánto gira cada pata desde el hombro/cadera al caminar (rad, ~22°)
+ALZADA = 3                 # cuánto se levanta la patita que avanza (px)
+JY = 43                    # fila de hombros y caderas: dentro del cuerpo, así no queda un hueco arriba de la pata
+# Forma de las patas en reposo, relativa al hombro/cadera (y hacia abajo): (punto, ancho en px).
+# Delantera: hombro, codo, muñeca, patita. Trasera en "Z" como la de un gato: cadera y muslo ancho,
+# rodilla hacia adelante, garrón ("talón") alto hacia atrás, patita.
+DELANTERA = [((0, 0), 5.0), ((-1, 7), 4.5), ((0, 14), 3.6), ((1, 18), 3.6)]
+TRASERA = [((0, 0), 7.5), ((3, 7), 5.5), ((-2, 12), 3.6), ((0, 18), 3.6)]
+# Cerca = lado izquierdo de Simón (el que se ve). Pares diagonales en fase: delantera cerca + trasera lejos.
+PATAS = [                  # x del hombro/cadera, fase, delantera, cercana  (en orden de dibujo dentro de cada lado)
+    (21, 0.0, False, False),
+    (47, np.pi, True, False),
+    (26, np.pi, False, True),
+    (52, 0.0, True, True),
+]
 
 
 def oscurecer(color, f=0.78):
     return tuple(int(v * f) for v in color)
 
 
-def dibujar_pata(lienzo, jx, jy, fx, fy, delantera, cercana):
-    """Pata de 4 px de ancho (las traseras, con el muslo más ancho arriba), de la articulación a la patita,
-    con la rodilla marcada y contorno."""
-    rodilla = (jx + (1 if delantera else -2), jy + (fy - jy) * 0.5)
+def puntos_pata(jx, fase, delantera):
+    """Articulaciones de la pata en este momento del paso: gira desde el hombro/cadera; la apoyada se estira
+    hasta el piso y la que avanza se dobla y se levanta."""
+    forma = DELANTERA if delantera else TRASERA
+    giro = GIRO * np.cos(fase)                           # >0: la patita va adelante
+    avanza = max(0.0, -np.sin(fase))                     # 0 apoyada … 1 en el aire
+    c, s = np.cos(giro), np.sin(giro)
     puntos = []
-    for (ax, ay), (bx, by) in (((jx, jy), rodilla), (rodilla, (fx, fy))):
-        pasos = int(max(abs(bx - ax), abs(by - ay))) * 2 + 1
-        puntos += [(ax + (bx - ax) * t / pasos, ay + (by - ay) * t / pasos) for t in range(pasos + 1)]
-    mascara = np.zeros(lienzo.shape[:2], bool)
-    for i, (x, y) in enumerate(puntos):
-        xi, yi = int(round(x)), int(round(y))
-        t = i / max(len(puntos) - 1, 1)                                    # 0 en la articulación, 1 en la patita
-        ancho = 4 + (round(2 * (1 - t / 0.45)) if not delantera and t < 0.45 else 0)
-        izq = ancho // 2
-        mascara[max(yi - 1, 0):yi + 1, max(xi - izq, 0):xi - izq + ancho] = True
-    mascara[int(fy) - 1:int(fy) + 1, int(fx) - 1:int(fx) + 3] = True      # patita, apenas hacia adelante
-    blanca_entera = delantera and cercana                                  # pata delantera izquierda de Simón
-    sombra = (lambda c: c) if cercana else oscurecer
+    for i, ((x, y), ancho) in enumerate(forma):
+        if i >= 2 and avanza:                            # la parte de abajo se dobla hacia adelante al levantarla
+            x, y = x + 2 * avanza, y - ALZADA * avanza * (0.6 if i == 2 else 1)
+        puntos.append([jx + x * c + y * s, JY - x * s + y * c, ancho])
+    if not avanza:                                       # apoyada: estira muñeca/garrón y patita hasta el piso
+        falta = SUELO - puntos[-1][1]
+        puntos[-1][1] += falta
+        puntos[-2][1] += falta * 0.5
+    return puntos
+
+
+def dibujar_pata(lienzo, cuerpo, puntos, delantera, cercana):
+    """Pata con grosor variable a lo largo de la línea, patita ovalada, colores de Simón y contorno."""
+    h, w = lienzo.shape[:2]
+    mascara = np.zeros((h, w), bool)
+    yy, xx = np.mgrid[0:h, 0:w]
+    for (ax, ay, aw), (bx, by, bw) in zip(puntos, puntos[1:]):
+        pasos = int(max(abs(bx - ax), abs(by - ay)) * 3) + 1
+        for t in np.linspace(0, 1, pasos):
+            x, y, r = ax + (bx - ax) * t, ay + (by - ay) * t, (aw + (bw - aw) * t) / 2
+            mascara |= (xx + 0.5 - x) ** 2 + (yy + 0.5 - y) ** 2 <= r * r
+    px, py = puntos[-1][0], puntos[-1][1]
+    mascara |= ((xx + 0.5 - (px + 1)) / 2.6) ** 2 + ((yy + 0.5 - (py - 0.8)) / 1.4) ** 2 <= 1   # patita
+    mascara[int(py) + 1:] = False                        # nada por debajo del piso
+
+    blanca_entera = delantera and cercana                # pata delantera izquierda de Simón
+    sombra = (lambda col: col) if cercana else oscurecer
     for y, x in zip(*np.nonzero(mascara)):
-        if blanca_entera or y >= fy - 2:                                   # patita blanca (3 filas)
-            color = BLANCO_SOMBRA if (x <= fx - 1 and not blanca_entera) or (blanca_entera and x == int(fx) - 1) else BLANCO
+        if blanca_entera or y >= py - 2:                 # patita blanca (3 filas); la otra pata, blanca entera
+            atras = x < px - 0.5 and not mascara[y, max(x - 1, 0)]
+            color = BLANCO_SOMBRA if atras else BLANCO
         else:
             color = RAYA if y % 3 == 0 else ATIGRADO
         lienzo[y, x] = (*sombra(color), 255)
-    # contorno: solo donde no tapa el cuerpo (debajo de la articulación)
+    # contorno de 1 px, salvo sobre el cuerpo (ahí la pata se funde con el pelaje)
     borde = np.zeros_like(mascara)
     borde[1:] |= mascara[:-1]; borde[:-1] |= mascara[1:]; borde[:, 1:] |= mascara[:, :-1]; borde[:, :-1] |= mascara[:, 1:]
-    borde &= ~mascara
-    borde[:jy + 2] = False
+    borde &= ~mascara & ~cuerpo
     lienzo[borde] = (*CONTORNO, 255)
 
 
@@ -143,28 +173,24 @@ def caminata(base, cuadros=6):
     cuerpo = base.copy()
     cuerpo[TOPE_CUERPO:, 12:] = 0                                         # sin patas (la punta de la cola, x<12, queda)
     cuerpo[TOPE_CUERPO + 4:, :12] = 0                                     # debajo de la cola: restos de la pata de la IA
-    # contorno de la panza donde quedó cortado
-    corte = (cuerpo[TOPE_CUERPO - 1, :, 3] > 0) & (np.arange(N) >= 12)
+    corte = (cuerpo[TOPE_CUERPO - 1, :, 3] > 0) & (np.arange(N) >= 12)   # contorno de la panza donde quedó cortado
     cuerpo[TOPE_CUERPO, corte] = (*CONTORNO, 255)
     linea_lomo(cuerpo, 18, 50)
     resultado = []
     for k in range(cuadros):
         rebote = 1 if k % (cuadros // 2) == cuadros // 4 else 0           # sube 1 px a mitad de cada paso
-        lienzo = np.zeros_like(cuerpo)
-        def patas(cercanas):
-            for jx, fase, delantera, cercana in PATAS.values():
-                if cercana != cercanas:
-                    continue
-                phi = 2 * np.pi * k / cuadros + fase
-                fx = jx + AMPLITUD * np.cos(phi)
-                fy = SUELO - 2 * max(0.0, -np.sin(phi))                    # la pata que avanza va levantada
-                dibujar_pata(lienzo, jx, TOPE_CUERPO - 1 - rebote, fx, fy, delantera, cercana)
-        patas(cercanas=False)                                              # las del otro lado, detrás del cuerpo
         movido = np.zeros_like(cuerpo)
-        movido[:N - rebote] = cuerpo[rebote:] if rebote else cuerpo
-        tapa = movido[..., 3] > 0
-        lienzo[tapa] = movido[tapa]
-        patas(cercanas=True)
+        movido[:N - rebote] = cuerpo[rebote:]
+        es_cuerpo = movido[..., 3] > 0
+        lienzo = np.zeros_like(cuerpo)
+        for cercanas in (False, True):                                    # las del otro lado, detrás del cuerpo
+            if cercanas:
+                lienzo[es_cuerpo] = movido[es_cuerpo]
+            for jx, fase, delantera, cercana in PATAS:
+                if cercana == cercanas:
+                    puntos = [[x, y - rebote, a] for x, y, a in puntos_pata(jx, 2 * np.pi * k / cuadros + fase, delantera)]
+                    puntos[-1][1] = min(puntos[-1][1] + rebote, SUELO)    # las patitas no suben con el rebote
+                    dibujar_pata(lienzo, es_cuerpo, puntos, delantera, cercana)
         resultado.append(lienzo)
     return resultado
 
