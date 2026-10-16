@@ -14,10 +14,8 @@ public partial class MainWindow : Window
     private enum Estado { Caminar, Sentado, Lamiendo, Estirando, Mirando, Durmiendo, Susto, Arrastrado, Cayendo }
 
     private const double Escala = 1;          // pixel art 1:1: cada píxel del dibujo es un píxel de pantalla (al 100 %)
-    // DIP por tick (10 por segundo). Cada paso dura 2 ticks y la pata apoyada retrocede 12 px en 3 pasos:
-    // 12 / 6 ticks = 2, así las patitas no patinan sobre la barra.
-    private const double Velocidad = 2;
-    private const int CuadrosCaminata = 6;
+    private const double Velocidad = 2.5;     // DIP por tick (10 por segundo); cada cuadro de la caminata dura 2 ticks
+    private const int CuadrosCaminata = 4;
     // La ventana baja este tanto sobre la barra de tareas: caminando, las patas quedan en el borde; en las poses de
     // descanso la imagen baja y la cola y la panza se apoyan apenas sobre la barra.
     private const double Posado = 5;
@@ -25,7 +23,7 @@ public partial class MainWindow : Window
     private const double Gravedad = 2.5;
 
     private static readonly string[] Nombres =
-        { "caminar1", "caminar2", "caminar3", "caminar4", "caminar5", "caminar6", "sentado", "lamiendo", "estirando", "susto", "durmiendo1", "durmiendo2", "colgando", "mirando" };
+        { "caminar1", "caminar2", "caminar3", "caminar4", "sentado", "lamiendo", "estirando", "susto", "durmiendo1", "durmiendo2", "colgando", "mirando" };
     private readonly Dictionary<string, BitmapImage> _poses = new();
     private readonly DispatcherTimer _reloj = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly DispatcherTimer _vigia = new() { Interval = TimeSpan.FromSeconds(2) };
