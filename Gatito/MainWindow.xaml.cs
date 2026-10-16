@@ -8,10 +8,11 @@ using System.Windows.Threading;
 namespace Gatito;
 
 // Simón camina por el borde de arriba de la barra de tareas y a veces descansa.
-// Un clic lo asusta (¡miau!); arrastrándolo se lo cambia de lugar y cae de nuevo a la barra.
+// Un clic lo asusta (¡miau!); doble clic es un mimo (mira de frente, ♥ prrr); arrastrándolo se lo cambia de lugar
+// y cae de nuevo a la barra. Con clic derecho: dormir, despertar o cerrar.
 public partial class MainWindow : Window
 {
-    private enum Estado { Caminar, Sentado, Lamiendo, Estirando, Mirando, Durmiendo, Susto, Arrastrado, Cayendo }
+    private enum Estado { Caminar, Sentado, Lamiendo, Estirando, Mirando, Durmiendo, Susto, Mimo, Arrastrado, Cayendo }
 
     private const double Escala = 1;          // pixel art 1:1: cada píxel del dibujo es un píxel de pantalla (al 100 %)
     private const double Velocidad = 2.5;     // DIP por tick (10 por segundo); cada cuadro de la caminata dura 2 ticks
@@ -28,6 +29,8 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _reloj = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly DispatcherTimer _vigia = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly Random _azar = new();
+    // Un clic suelto espera un instante por si llega el segundo (doble clic = mimo, no susto).
+    private readonly DispatcherTimer _clicSuelto = new() { Interval = TimeSpan.FromMilliseconds(260) };
 
     private Estado _estado = Estado.Caminar;
     private int _cuadro;                      // cuadros desde que empezó el estado actual
@@ -49,6 +52,7 @@ public partial class MainWindow : Window
         Posicionar();
         Mostrar("caminar1");
 
+        _clicSuelto.Tick += (_, _) => { _clicSuelto.Stop(); Cambiar(Estado.Susto); };
         _reloj.Tick += (_, _) => Avanzar();
         _reloj.Start();
         // Si hay un video o un juego en pantalla completa, Simón se esconde. Si no, se vuelve a poner adelante:
@@ -113,6 +117,7 @@ public partial class MainWindow : Window
     // Qué hace después: casi siempre vuelve a caminar; a veces descansa un rato.
     private void Siguiente()
     {
+        if (_estado == Estado.Mimo) { Cambiar(Estado.Sentado); return; }   // después del mimo se queda un rato
         if (_estado != Estado.Caminar) { Cambiar(Estado.Caminar); return; }
         var r = _azar.NextDouble();
         Cambiar(r switch
@@ -132,7 +137,8 @@ public partial class MainWindow : Window
         _estado = nuevo;
         _cuadro = 0;
         Zzz.Visibility = nuevo == Estado.Durmiendo ? Visibility.Visible : Visibility.Collapsed;
-        Globo.Visibility = nuevo == Estado.Susto ? Visibility.Visible : Visibility.Collapsed;
+        Globo.Visibility = nuevo is Estado.Susto or Estado.Mimo ? Visibility.Visible : Visibility.Collapsed;
+        GloboTexto.Text = nuevo == Estado.Mimo ? "♥ prrr" : "¡miau!";
         (_duracion, var pose) = nuevo switch
         {
             Estado.Caminar => (_azar.Next(50, 150), "caminar1"),
@@ -142,6 +148,7 @@ public partial class MainWindow : Window
             Estado.Mirando => (_azar.Next(30, 60), "mirando"),
             Estado.Durmiendo => (_azar.Next(200, 600), "durmiendo1"),
             Estado.Susto => (12, "susto"),
+            Estado.Mimo => (35, "mirando"),
             _ => (0, "colgando"), // arrastrado o cayendo: colgando en el aire
         };
         if (nuevo == Estado.Caminar && _azar.NextDouble() < 0.3) _direccion = -_direccion;
@@ -170,6 +177,13 @@ public partial class MainWindow : Window
 
     private void Presionar(object sender, MouseButtonEventArgs e)
     {
+        if (e.ClickCount == 2)
+        {
+            _clicSuelto.Stop();
+            _agarre = null;
+            Cambiar(Estado.Mimo);
+            return;
+        }
         _agarre = e.GetPosition(this);
         _inicioClic = PointToScreen(_agarre.Value);
         _movido = false;
@@ -197,8 +211,20 @@ public partial class MainWindow : Window
         _agarre = null;
         ReleaseMouseCapture();
         if (_movido) { _velocidadY = 0; Cambiar(Estado.Cayendo); }
-        else Cambiar(Estado.Susto);
+        else _clicSuelto.Start();
     }
+
+    // ── Menú de clic derecho ──
+
+    private void Dormir(object sender, RoutedEventArgs e)
+    {
+        Cambiar(Estado.Durmiendo);
+        _duracion = int.MaxValue;   // dormido hasta que lo toquen o se elija Despertar
+    }
+
+    private void Despertar(object sender, RoutedEventArgs e) => Cambiar(Estado.Estirando);
+
+    private void Cerrar(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
 
     // ── Pantalla completa ──
 

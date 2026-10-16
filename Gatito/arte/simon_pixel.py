@@ -135,6 +135,24 @@ def otras_delanteras_atigradas(px, blanca):
             patas_atigradas(px, x0, x1)
 
 
+def balancear(px, x0, x1, y0, dx):
+    """Inclina la parte de abajo de una pata: cada fila se corre más cuanto más abajo (la patita, dx px)."""
+    zona = px[y0:, x0:x1 + 1].copy()
+    px[y0:, x0:x1 + 1] = 0
+    alto = N - y0
+    for f in range(alto):
+        corrimiento = round(dx * f / (alto - 1))
+        for x in range(x0, x1 + 1):
+            if zona[f, x - x0, 3]:
+                nx = x + corrimiento
+                if 0 <= nx < N:
+                    px[y0 + f, nx] = zona[f, x - x0]
+
+
+TRASERA_QUIETA = (2, 20, 50)     # x0, x1, desde qué fila: la trasera de atrás, igual en los 4 cuadros de la IA
+BALANCEO = [2, 0, -2, 0]         # cuánto se corre la patita en cada cuadro (px)
+
+
 def caminata(c):
     c["caminar_ia4"][:PIERNAS - 4] = c["caminar_ia2"][:PIERNAS - 4]   # el lomo erizado del cuadro 4, del cuadro 2
     cuadros = []
@@ -144,6 +162,7 @@ def caminata(c):
         otras_delanteras_atigradas(px, blanca)
         pata_blanca(px, *blanca)
         linea_lomo(px, 18, 50)
+        balancear(px, *TRASERA_QUIETA, BALANCEO[len(cuadros)])
         cuadros.append(px)
     return cuadros
 
@@ -161,7 +180,9 @@ if __name__ == "__main__":
     c = cargar(hoja)
 
     # Patas traseras atigradas (la IA las hizo blancas); las patitas quedan blancas.
-    pata_atigrada(c["estirando"], 0, 7, 46, 58)
+    pata_atigrada(c["estirando"], 8, 15, 48, 59)
+    pata_atigrada(c["estirando"], 20, 34, 52, 58)
+    pintar(c["estirando"], 44, 75, 58, 63, PELAJE + [BLANCO_SOMBRA], lambda y: BLANCO)   # delantera cercana, blanca
     pata_atigrada(c["susto"], 15, 31, 37, 52)
     pata_atigrada(c["colgando"], 17, 31, 39, 57)
     # Línea oscura del lomo
